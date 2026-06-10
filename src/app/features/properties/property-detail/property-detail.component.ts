@@ -178,7 +178,7 @@ export class PropertyDetailComponent implements OnInit {
             const method = PAYMENT_METHOD_LABELS[p.method];
             let message: string;
 
-            if (p.status === 'pending_verification') {
+            if (p.status === 'pending_verification' || (p.reportedByTenant && p.status !== 'paid' && p.status !== 'partial')) {
               message = name
                 ? `${name} reported ${amount} via ${method} (pending)`
                 : `Payment reported — ${amount} (pending)`;

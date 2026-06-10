@@ -11,6 +11,7 @@ import { PAYMENT_METHOD_LABELS } from '../models/payment.model';
 import { getMonthStart } from '../utils/firestore.utils';
 import {
   calculateOutstandingRent,
+  countPendingPaymentReports,
   sumConfirmedCollected,
   sumRentCredits,
 } from '../utils/payment-stats.utils';
@@ -63,8 +64,7 @@ export class DashboardService {
             map((property) => ({
               ...this.emptyStats(),
               currency: property?.currency ?? 'GMD',
-              pendingPaymentReports: payments.filter((p) => p.status === 'pending_verification')
-                .length,
+              pendingPaymentReports: countPendingPaymentReports(payments),
             }))
           )
         ),
@@ -110,9 +110,7 @@ export class DashboardService {
               lastMonthRef
             );
             const pendingRequests = requests.filter((r) => r.status !== 'completed').length;
-            const pendingPaymentReports = payments.filter(
-              (p) => p.status === 'pending_verification'
-            ).length;
+            const pendingPaymentReports = countPendingPaymentReports(payments);
 
             return {
               collectedThisMonth,

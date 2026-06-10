@@ -53,46 +53,18 @@ export class PaymentService {
   getByProperty(propertyId: string): Observable<Payment[]> {
     return observeQuery<Payment>(this.injector, () =>
       query(this.collection, where('propertyId', '==', propertyId))
-    ).pipe(
-      map((items) =>
-        items
-          .map((item) => ({
-            ...item,
-            date: toDate(item.date),
-            createdAt: toDate(item.createdAt),
-          }))
-          .sort((a, b) => b.date.getTime() - a.date.getTime())
-      )
-    );
+    ).pipe(map((items) => this.normalizePayments(items)));
   }
 
   getByTenant(tenantId: string): Observable<Payment[]> {
     return observeQuery<Payment>(this.injector, () =>
       query(this.collection, where('tenantId', '==', tenantId))
-    ).pipe(
-      map((items) =>
-        items
-          .map((item) => ({
-            ...item,
-            date: toDate(item.date),
-            createdAt: toDate(item.createdAt),
-          }))
-          .sort((a, b) => b.date.getTime() - a.date.getTime())
-      )
-    );
+    ).pipe(map((items) => this.normalizePayments(items)));
   }
 
   getByOwnerProperties(propertyIds: string[]): Observable<Payment[]> {
     return observeByPropertyIds<Payment>(this.injector, this.collection, propertyIds).pipe(
-      map((items) =>
-        items
-          .map((item) => ({
-            ...item,
-            date: toDate(item.date),
-            createdAt: toDate(item.createdAt),
-          }))
-          .sort((a, b) => b.date.getTime() - a.date.getTime())
-      )
+      map((items) => this.normalizePayments(items))
     );
   }
 
@@ -128,17 +100,37 @@ export class PaymentService {
     return `RB-${paymentId.slice(0, 8).toUpperCase()}`;
   }
 
+  private normalizePayments(items: Payment[]): Payment[] {
+    return items
+      .map((item) => this.normalizePayment(item))
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+  }
+
+  private normalizePayment(item: Payment): Payment {
+    const date = toDate(item.date);
+    const createdAt = toDate(item.createdAt, item.date);
+    let status = item.status;
+
+    if (
+      item.reportedByTenant &&
+      status !== 'paid' &&
+      status !== 'partial' &&
+      status !== 'pending_verification'
+    ) {
+      status = 'pending_verification';
+    }
+
+    return {
+      ...item,
+      date,
+      createdAt,
+      status,
+    };
+  }
+
   private mapPayments(q: Query): Observable<Payment[]> {
     return observeCollection<Payment>(this.injector, q).pipe(
-      map((items) =>
-        items
-          .map((item) => ({
-            ...item,
-            date: toDate(item.date),
-            createdAt: toDate(item.createdAt),
-          }))
-          .sort((a, b) => b.date.getTime() - a.date.getTime())
-      )
+      map((items) => this.normalizePayments(items))
     );
   }
 }

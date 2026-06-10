@@ -1,14 +1,20 @@
 import { Timestamp } from 'firebase/firestore';
 
-export function toDate(value: unknown): Date {
+export function toDate(value: unknown, fallback?: unknown): Date {
   if (value instanceof Timestamp) {
     return value.toDate();
   }
-  if (value instanceof Date) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
     return value;
   }
   if (typeof value === 'string' || typeof value === 'number') {
-    return new Date(value);
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  if (fallback !== undefined) {
+    return toDate(fallback);
   }
   return new Date();
 }

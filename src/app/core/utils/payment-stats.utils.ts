@@ -1,5 +1,5 @@
 import { Payment, PaymentStatus } from '../models/payment.model';
-import { getMonthStart } from './firestore.utils';
+import { getMonthEnd, getMonthStart } from './firestore.utils';
 
 /** Statuses that reduce outstanding rent (confirmed or awaiting landlord verification). */
 export const RENT_CREDIT_STATUSES: PaymentStatus[] = [
@@ -8,8 +8,31 @@ export const RENT_CREDIT_STATUSES: PaymentStatus[] = [
   'pending_verification',
 ];
 
-export function isRentCreditStatus(status: PaymentStatus): boolean {
-  return RENT_CREDIT_STATUSES.includes(status);
+export function isPendingTenantReport(payment: Payment): boolean {
+  return (
+    !!payment.reportedByTenant &&
+    payment.status !== 'paid' &&
+    payment.status !== 'partial'
+  );
+}
+
+export function isRentCreditPayment(payment: Payment): boolean {
+  if (payment.status === 'pending_verification') {
+    return true;
+  }
+  if (payment.status === 'paid' || payment.status === 'partial') {
+    return true;
+  }
+  return isPendingTenantReport(payment);
+}
+
+/** Best date for deciding which month a payment belongs to. */
+export function paymentBucketDate(payment: Payment): Date {
+  const created = payment.createdAt;
+  if (created && !Number.isNaN(created.getTime())) {
+    return created;
+  }
+  return payment.date;
 }
 
 /** Whether a payment counts toward this month's collected / outstanding figures. */
@@ -18,17 +41,19 @@ export function paymentAppliesToMonth(
   monthStart: Date,
   now = new Date()
 ): boolean {
-  if (payment.date >= monthStart) {
+  const monthEnd = getMonthEnd(now);
+
+  // Unresolved tenant reports always show on the current overview.
+  if (isPendingTenantReport(payment) || payment.status === 'pending_verification') {
     return true;
   }
 
-  // Tenant reports often use the payment date; bucket by createdAt for pending items.
-  if (
-    payment.status === 'pending_verification' &&
-    payment.reportedByTenant &&
-    payment.createdAt >= monthStart &&
-    payment.createdAt <= now
-  ) {
+  const bucket = paymentBucketDate(payment);
+  if (bucket >= monthStart && bucket <= monthEnd) {
+    return true;
+  }
+
+  if (payment.date >= monthStart && payment.date <= monthEnd) {
     return true;
   }
 
@@ -45,7 +70,7 @@ export function sumRentCredits(
   return payments
     .filter(
       (p) =>
-        isRentCreditStatus(p.status) &&
+        isRentCreditPayment(p) &&
         paymentAppliesToMonth(p, monthStart, now) &&
         (!options?.tenantId || p.tenantId === options.tenantId)
     )
@@ -89,4 +114,10 @@ export function calculateOutstandingRent(
 
     return total;
   }, 0);
+}
+
+export function countPendingPaymentReports(payments: Payment[]): number {
+  return payments.filter(
+    (p) => p.status === 'pending_verification' || isPendingTenantReport(p)
+  ).length;
 }
