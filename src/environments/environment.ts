@@ -10,5 +10,5 @@ export const environment = {
     measurementId: 'G-VDE3009TTM',
   },
   /** Set in Cloudflare/Firebase console after enabling App Check with reCAPTCHA v3 */
-  appCheckRecaptchaSiteKey: '',
+  appCheckRecaptchaSiteKey: '6LfYMxgtAAAAAEn-YA-jMisZrrTZig2DsJAyIIH-',
 };
