@@ -7,8 +7,13 @@ import { PaymentService } from './payment.service';
 import { PropertyService } from './property.service';
 import { TenantService } from './tenant.service';
 import { UnitService } from './unit.service';
-import { PAYMENT_METHOD_LABELS, Payment } from '../models/payment.model';
+import { PAYMENT_METHOD_LABELS } from '../models/payment.model';
 import { getMonthStart } from '../utils/firestore.utils';
+import {
+  calculateOutstandingRent,
+  sumConfirmedCollected,
+  sumRentCredits,
+} from '../utils/payment-stats.utils';
 import { isTenant, isTenancyLinked } from '../utils/role.utils';
 
 export interface DashboardStats {
@@ -93,22 +98,13 @@ export class DashboardService {
             const monthStart = getMonthStart(now);
             const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-            const collectedThisMonth = payments
-              .filter((p) => p.date >= monthStart && p.status === 'paid')
-              .reduce((sum, p) => sum + p.amount, 0);
+            const collectedThisMonth = sumRentCredits(payments, { monthStart, now });
 
-            const collectedLastMonth = payments
-              .filter(
-                (p) =>
-                  p.date >= lastMonthStart &&
-                  p.date < monthStart &&
-                  p.status === 'paid'
-              )
-              .reduce((sum, p) => sum + p.amount, 0);
+            const collectedLastMonth = sumConfirmedCollected(payments, lastMonthStart, monthStart);
 
-            const outstandingRent = this.calculateOutstanding(tenants, payments, now);
+            const outstandingRent = calculateOutstandingRent(tenants, payments, now);
             const lastMonthRef = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-            const outstandingLastMonth = this.calculateOutstanding(
+            const outstandingLastMonth = calculateOutstandingRent(
               tenants,
               payments,
               lastMonthRef
@@ -223,28 +219,4 @@ export class DashboardService {
     return Math.round(((current - previous) / previous) * 100);
   }
 
-  private calculateOutstanding(
-    tenants: { id: string; monthlyRent: number; dueDay: number }[],
-    payments: Payment[],
-    now = new Date()
-  ): number {
-    const monthStart = getMonthStart(now);
-
-    return tenants.reduce((total, tenant) => {
-      const paidThisMonth = payments
-        .filter(
-          (p) =>
-            p.tenantId === tenant.id &&
-            p.date >= monthStart &&
-            (p.status === 'paid' || p.status === 'partial')
-        )
-        .reduce((sum, p) => sum + p.amount, 0);
-
-      const due = now.getDate() >= tenant.dueDay;
-      if (due && paidThisMonth < tenant.monthlyRent) {
-        return total + (tenant.monthlyRent - paidThisMonth);
-      }
-      return total;
-    }, 0);
-  }
 }

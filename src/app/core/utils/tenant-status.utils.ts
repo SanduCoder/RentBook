@@ -1,6 +1,7 @@
 import { Payment } from '../models/payment.model';
 import { Tenant } from '../models/tenant.model';
 import { getMonthStart } from './firestore.utils';
+import { sumRentCredits } from './payment-stats.utils';
 
 export type TenantRentStatus = 'paid' | 'overdue' | 'due_soon' | 'upcoming';
 
@@ -13,13 +14,7 @@ export interface TenantRentStatusInfo {
 
 export function getTenantRentStatus(tenant: Tenant, payments: Payment[], now = new Date()): TenantRentStatusInfo {
   const monthStart = getMonthStart(now);
-  const paidThisMonth = payments
-    .filter(
-      (p) =>
-        p.date >= monthStart &&
-        (p.status === 'paid' || p.status === 'partial')
-    )
-    .reduce((sum, p) => sum + p.amount, 0);
+  const paidThisMonth = sumRentCredits(payments, { tenantId: tenant.id, monthStart, now });
 
   const nextDue = nextDueDate(tenant.dueDay, now);
   const currentDue = new Date(now.getFullYear(), now.getMonth(), tenant.dueDay);

@@ -51,7 +51,13 @@
             <span class="metric-label">Collected</span>
           </div>
           <span class="metric-value">{{ stats.collectedThisMonth | currencyFormat: stats.currency }}</span>
-          <span class="metric-trend">{{ trendLabel(stats.collectedTrend) }}</span>
+          <span class="metric-trend">
+            @if (stats.pendingPaymentReports > 0) {
+              incl. pending verification
+            } @else {
+              {{ trendLabel(stats.collectedTrend) }}
+            }
+          </span>
         </div>
 
         <div class="metric-card metric-outstanding">

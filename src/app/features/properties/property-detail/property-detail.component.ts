@@ -30,6 +30,11 @@ import { SharedBillService } from '../../../core/services/shared-bill.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
 import { getMonthStart } from '../../../core/utils/firestore.utils';
+import {
+  calculateOutstandingRent,
+  sumRentCredits,
+} from '../../../core/utils/payment-stats.utils';
+import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
 import { PropertyActivity, propertyActivityLink } from '../../../core/utils/activity.utils';
 import {
   TenantRentStatusInfo,
@@ -126,9 +131,7 @@ export class PropertyDetailComponent implements OnInit {
       ]).pipe(
         map(([property, units, tenants, payments, requests]) => {
           const monthStart = getMonthStart();
-          const collectedThisMonth = payments
-            .filter((p) => p.date >= monthStart && p.status === 'paid')
-            .reduce((sum, p) => sum + p.amount, 0);
+          const collectedThisMonth = sumRentCredits(payments, { monthStart });
 
           const occupiedUnits = units.filter((u) => u.status === 'occupied').length;
           const vacantUnits = units.filter((u) => u.status === 'vacant').length;
@@ -136,7 +139,7 @@ export class PropertyDetailComponent implements OnInit {
 
           return {
             collectedThisMonth,
-            outstandingRent: this.calculateOutstanding(tenants, payments),
+            outstandingRent: calculateOutstandingRent(tenants, payments),
             occupiedUnits,
             vacantUnits,
             totalUnits,
@@ -172,11 +175,22 @@ export class PropertyDetailComponent implements OnInit {
           return payments.slice(0, 6).map((p) => {
             const name = tenantNames.get(p.tenantId);
             const amount = `D${p.amount.toLocaleString()}`;
+            const method = PAYMENT_METHOD_LABELS[p.method];
+            let message: string;
+
+            if (p.status === 'pending_verification') {
+              message = name
+                ? `${name} reported ${amount} via ${method} (pending)`
+                : `Payment reported — ${amount} (pending)`;
+            } else {
+              message = name ? `${name} paid ${amount}` : `Payment recorded — ${amount}`;
+            }
+
             return {
               id: p.id,
               type: 'payment' as const,
               tenantId: p.tenantId,
-              message: name ? `${name} paid ${amount}` : `Payment recorded — ${amount}`,
+              message,
               timestamp: p.date,
               amount: p.amount,
             };
@@ -613,28 +627,4 @@ export class PropertyDetailComponent implements OnInit {
     }
   }
 
-  private calculateOutstanding(
-    tenants: { id: string; monthlyRent: number; dueDay: number }[],
-    payments: Payment[]
-  ): number {
-    const now = new Date();
-    const monthStart = getMonthStart(now);
-
-    return tenants.reduce((total, tenant) => {
-      const paidThisMonth = payments
-        .filter(
-          (p) =>
-            p.tenantId === tenant.id &&
-            p.date >= monthStart &&
-            (p.status === 'paid' || p.status === 'partial')
-        )
-        .reduce((sum, p) => sum + p.amount, 0);
-
-      const due = now.getDate() >= tenant.dueDay;
-      if (due && paidThisMonth < tenant.monthlyRent) {
-        return total + (tenant.monthlyRent - paidThisMonth);
-      }
-      return total;
-    }, 0);
-  }
 }
