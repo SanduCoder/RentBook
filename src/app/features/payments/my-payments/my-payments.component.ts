@@ -1,7 +1,7 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { map, of, switchMap } from 'rxjs';
+import { catchError, map, of, switchMap } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import {
   PAYMENT_METHOD_LABELS,
@@ -46,15 +46,17 @@ export class MyPaymentsComponent {
         return of({ currency: 'GMD', items: [] } satisfies MyPaymentsData);
       }
 
-      return this.propertyService.getById(user.linkedPropertyId!).pipe(
-        switchMap((property) =>
-          this.paymentService.getByTenant(user.tenantRecordId!).pipe(
-            map((items) => ({
+      return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
+        switchMap((items) =>
+          this.propertyService.getById(user.linkedPropertyId!).pipe(
+            map((property) => ({
               currency: property?.currency ?? 'GMD',
               items,
-            }))
+            })),
+            catchError(() => of({ currency: 'GMD', items }))
           )
-        )
+        ),
+        catchError(() => of({ currency: 'GMD', items: [] } satisfies MyPaymentsData))
       );
     })
   );
