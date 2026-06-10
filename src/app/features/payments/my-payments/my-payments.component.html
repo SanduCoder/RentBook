@@ -1,0 +1,65 @@
+<div class="list-page">
+  <header class="page-header-bar">
+    <a routerLink="/dashboard" class="icon-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </a>
+    <h1>My Payments</h1>
+    <a routerLink="/payments/report" class="header-action" aria-label="Report payment">+</a>
+  </header>
+
+  @if (payments$ | async; as data) {
+    @if (pendingCount(data.items) > 0) {
+      <p class="pending-banner">
+        {{ pendingCount(data.items) }} payment(s) waiting for landlord verification
+      </p>
+    }
+
+    <div class="list-content">
+      @if (data.items.length === 0) {
+        <app-empty-state
+          icon="💰"
+          title="No payments yet"
+          message="After you pay rent via Wave, AfriMoney, or cash, report it here so your landlord can confirm."
+        >
+          <a routerLink="/payments/report" class="btn-primary">Report Payment</a>
+        </app-empty-state>
+      } @else {
+        <ul class="item-list">
+          @for (payment of data.items; track payment.id) {
+            <li>
+              <article class="record-card">
+                <div class="card-header">
+                  <div class="card-head-text">
+                    <h3>{{ payment.amount | currencyFormat: data.currency }}</h3>
+                    <p class="card-meta">{{ methodLabels[payment.method] }}</p>
+                  </div>
+                  <span class="status-badge" [class]="payment.status">
+                    {{ statusLabels[payment.status] }}
+                  </span>
+                </div>
+                <div class="details-grid">
+                  <div class="detail-item">
+                    <span class="detail-label">Date</span>
+                    <span class="detail-value">{{ payment.date | date: 'MMM d, yyyy' }}</span>
+                  </div>
+                  @if (payment.reference) {
+                    <div class="detail-item">
+                      <span class="detail-label">Reference</span>
+                      <span class="detail-value">{{ payment.reference }}</span>
+                    </div>
+                  }
+                </div>
+              </article>
+            </li>
+          }
+        </ul>
+
+        <div class="footer-cta">
+          <a routerLink="/payments/report" class="cta-btn">+ Report Payment</a>
+        </div>
+      }
+    </div>
+  }
+</div>

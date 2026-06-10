@@ -57,7 +57,31 @@
   }
 
   <ul class="menu-list">
+    @if (user()?.role === 'tenant' && user()?.tenantRecordId) {
+      <li>
+        <a routerLink="/my-payments" class="menu-item">
+          <span class="menu-icon" aria-hidden="true">
+            <app-icon-3d name="collected" />
+          </span>
+          <span class="menu-label">My Payments</span>
+          <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </a>
+      </li>
+    }
     @if (canManageTenants(user()?.role)) {
+      <li>
+        <a routerLink="/payments" class="menu-item">
+          <span class="menu-icon" aria-hidden="true">
+            <app-icon-3d name="collected" />
+          </span>
+          <span class="menu-label">Payments</span>
+          <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </a>
+      </li>
       <li>
         <a routerLink="/tenants" class="menu-item">
           <span class="menu-icon" aria-hidden="true">

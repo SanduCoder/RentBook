@@ -100,6 +100,20 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'payments/report',
+        loadComponent: () =>
+          import('./features/payments/tenant-payment-report/tenant-payment-report.component').then(
+            (m) => m.TenantPaymentReportComponent
+          ),
+      },
+      {
+        path: 'my-payments',
+        loadComponent: () =>
+          import('./features/payments/my-payments/my-payments.component').then(
+            (m) => m.MyPaymentsComponent
+          ),
+      },
+      {
         path: 'requests',
         loadComponent: () =>
           import('./features/maintenance/maintenance-list/maintenance-list.component').then(

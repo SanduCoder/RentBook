@@ -4,9 +4,12 @@ import {
   Timestamp,
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   query,
   Query,
   serverTimestamp,
+  updateDoc,
   where,
 } from '@angular/fire/firestore';
 import { Observable, map, of } from 'rxjs';
@@ -25,6 +28,19 @@ export interface CreatePaymentDto {
   reference?: string;
   notes?: string;
   status: PaymentStatus;
+  recordedBy: string;
+  reportedByTenant?: boolean;
+}
+
+export interface ReportPaymentDto {
+  tenantId: string;
+  propertyId: string;
+  unitId: string;
+  amount: number;
+  date: Date;
+  method: PaymentMethod;
+  reference?: string;
+  notes?: string;
   recordedBy: string;
 }
 
@@ -90,6 +106,22 @@ export class PaymentService {
       })
     );
     return ref.id;
+  }
+
+  async reportPayment(data: ReportPaymentDto): Promise<string> {
+    return this.create({
+      ...data,
+      status: 'pending_verification',
+      reportedByTenant: true,
+    });
+  }
+
+  async confirmPayment(id: string, status: 'paid' | 'partial' = 'paid'): Promise<void> {
+    await updateDoc(doc(this.firestore, 'payments', id), { status });
+  }
+
+  async rejectReportedPayment(id: string): Promise<void> {
+    await deleteDoc(doc(this.firestore, 'payments', id));
   }
 
   generateReceiptNumber(paymentId: string): string {

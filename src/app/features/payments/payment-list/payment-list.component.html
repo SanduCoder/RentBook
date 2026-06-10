@@ -37,8 +37,8 @@
           <span class="stat-icon" aria-hidden="true">
             <app-icon-3d name="pending" />
           </span>
-          <span class="stat-count">{{ countByStatus(data.items, 'late') }}</span>
-          <span class="stat-label">Late</span>
+          <span class="stat-count">{{ countByStatus(data.items, 'pending_verification') }}</span>
+          <span class="stat-label">To verify</span>
         </div>
       </div>
     }
@@ -68,8 +68,13 @@
                     <h3>{{ payment.amount | currencyFormat: data.currency }}</h3>
                     <p class="card-meta">{{ methodLabels[payment.method] }}</p>
                   </div>
-                  <span class="status-badge" [class]="payment.status">{{ payment.status }}</span>
+                  <span class="status-badge" [class]="payment.status">
+                    {{ statusLabels[payment.status] }}
+                  </span>
                 </div>
+                @if (payment.reportedByTenant) {
+                  <p class="card-report-note">Reported by tenant</p>
+                }
                 <div class="details-grid">
                   <div class="detail-item">
                     <span class="detail-icon detail-green" aria-hidden="true">
@@ -106,7 +111,40 @@
                       <span class="detail-value">{{ methodLabels[payment.method] }}</span>
                     </div>
                   </div>
+                  @if (payment.reference) {
+                    <div class="detail-item">
+                      <span class="detail-icon detail-purple" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M4 7h16M4 12h10M4 17h16" />
+                        </svg>
+                      </span>
+                      <div class="detail-text">
+                        <span class="detail-label">Reference</span>
+                        <span class="detail-value">{{ payment.reference }}</span>
+                      </div>
+                    </div>
+                  }
                 </div>
+                @if (payment.status === 'pending_verification') {
+                  <div class="card-actions">
+                    <button
+                      type="button"
+                      class="btn-primary btn-sm"
+                      [disabled]="actionPaymentId() === payment.id"
+                      (click)="confirmPayment(payment)"
+                    >
+                      {{ actionPaymentId() === payment.id ? 'Confirming…' : 'Confirm' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-secondary btn-sm"
+                      [disabled]="actionPaymentId() === payment.id"
+                      (click)="rejectPayment(payment)"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                }
               </article>
             </li>
           }

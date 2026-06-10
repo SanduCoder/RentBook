@@ -1,5 +1,5 @@
 export type PaymentMethod = 'wave' | 'afrimoney' | 'qmoney' | 'bank_transfer' | 'cash';
-export type PaymentStatus = 'paid' | 'upcoming' | 'late' | 'partial';
+export type PaymentStatus = 'paid' | 'upcoming' | 'late' | 'partial' | 'pending_verification';
 
 export interface Payment {
   id: string;
@@ -14,8 +14,17 @@ export interface Payment {
   status: PaymentStatus;
   receiptUrl?: string;
   recordedBy: string;
+  reportedByTenant?: boolean;
   createdAt: Date;
 }
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  paid: 'Paid',
+  partial: 'Partial',
+  upcoming: 'Upcoming',
+  late: 'Late',
+  pending_verification: 'Pending verification',
+};
 
 export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'wave', label: 'Wave' },

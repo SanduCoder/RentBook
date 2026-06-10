@@ -9,8 +9,12 @@ export interface PropertyActivity {
   tenantId?: string;
 }
 
-export function dashboardActivityLink(item: ActivityItem): string[] {
+export function dashboardActivityLink(
+  item: ActivityItem,
+  options?: { isTenant?: boolean }
+): string[] {
   if (item.type === 'maintenance') return ['/requests'];
+  if (options?.isTenant) return ['/my-payments'];
   if (item.tenantId) return ['/tenants', item.tenantId];
   return ['/payments'];
 }

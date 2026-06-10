@@ -1,0 +1,70 @@
+<div class="form-page">
+@if (success()) {
+  <div class="success-screen">
+    <div class="success-icon">✓</div>
+    <h1>Payment Reported</h1>
+    <p>Reference #{{ referenceNumber() }}</p>
+    <p class="success-hint">Your landlord will review and confirm this payment.</p>
+    <a routerLink="/my-payments" class="btn-primary">View My Payments</a>
+  </div>
+} @else {
+  <a routerLink="/my-payments" class="back-link">← Cancel</a>
+
+  <app-page-header
+    title="Report Payment"
+    subtitle="Tell your landlord you paid rent via Wave, AfriMoney, or other method"
+  />
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
+    <p class="form-hint">
+      @if (monthlyRent() > 0) {
+        Monthly rent: <strong>D{{ monthlyRent() | number }}</strong>
+      }
+    </p>
+
+    <label>
+      Amount paid
+      <input type="number" formControlName="amount" placeholder="0" />
+    </label>
+
+    <label>
+      Payment method
+      <select formControlName="method">
+        @for (method of methods; track method.value) {
+          <option [value]="method.value">{{ method.label }}</option>
+        }
+      </select>
+    </label>
+
+    <label>
+      Transaction reference
+      <input
+        type="text"
+        formControlName="reference"
+        placeholder="Wave / AfriMoney transaction ID"
+      />
+    </label>
+
+    <label>
+      Payment date
+      <input type="date" formControlName="date" />
+    </label>
+
+    <label>
+      Notes (optional)
+      <textarea formControlName="notes" rows="2" placeholder="Any extra details"></textarea>
+    </label>
+
+    @if (error()) {
+      <p class="form-error">{{ error() }}</p>
+    }
+
+    <div class="form-actions">
+      <a routerLink="/my-payments" class="btn-secondary">Cancel</a>
+      <button type="submit" class="btn-primary" [disabled]="form.invalid || loading()">
+        {{ loading() ? 'Submitting…' : 'Report Payment' }}
+      </button>
+    </div>
+  </form>
+}
+</div>

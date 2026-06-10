@@ -36,7 +36,13 @@
 
     <div class="overview-panel">
       @if (canManage()) {
-      <h2 class="overview-title">This Month Overview</h2>
+        <h2 class="overview-title">This Month Overview</h2>
+        @if (stats.pendingPaymentReports > 0) {
+          <p class="tenant-overview-hint">
+            {{ stats.pendingPaymentReports }} tenant payment(s) need verification.
+            <a routerLink="/payments">Review</a>
+          </p>
+        }
 
       <div class="stats-grid">
         <div class="metric-card metric-collected">
@@ -82,7 +88,15 @@
         <p class="tenant-overview-hint">Your landlord has been notified. Ask them for the property code, then complete setup to link your unit.</p>
       } @else {
         <h2 class="overview-title">Your Home</h2>
-        <p class="tenant-overview-hint">Report maintenance issues and track your requests from quick actions below.</p>
+        @if (stats.pendingPaymentReports > 0) {
+          <p class="tenant-overview-hint">
+            {{ stats.pendingPaymentReports }} payment(s) waiting for landlord verification.
+          </p>
+        } @else {
+          <p class="tenant-overview-hint">
+            Report rent payments and maintenance issues from quick actions below.
+          </p>
+        }
       }
     </div>
   } @else {
@@ -107,7 +121,7 @@
   <section class="activity-section">
     <div class="section-header">
       <h2>Recent Activity</h2>
-      <a routerLink="/requests" class="view-all">View all</a>
+      <a [routerLink]="canManage() ? '/requests' : '/my-payments'" class="view-all">View all</a>
     </div>
 
     @if (activity$ | async; as activities) {
@@ -118,14 +132,14 @@
             <a routerLink="/payments/new" class="btn-primary btn-sm">Record Payment</a>
           } @else {
             <p>No activity yet. Submit a maintenance request when you need help.</p>
-            <a routerLink="/requests/new" class="btn-primary btn-sm">Report Issue</a>
+            <a routerLink="/payments/report" class="btn-primary btn-sm">Report Payment</a>
           }
         </div>
       } @else {
         <ul class="activity-list">
           @for (item of activities; track item.id) {
             <li>
-              <a [routerLink]="activityLink(item)" class="activity-link">
+              <a [routerLink]="activityLink(item, { isTenant: !canManage() })" class="activity-link">
                 <span class="activity-icon" [class]="activityStatus(item)">
                   {{ activityIcon(item) }}
                 </span>

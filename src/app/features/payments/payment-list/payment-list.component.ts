@@ -1,12 +1,17 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { map, switchMap } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
-import { Payment, PaymentStatus } from '../../../core/models/payment.model';
+import { ErrorNotificationService } from '../../../core/services/error-notification.service';
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_STATUS_LABELS,
+  Payment,
+  PaymentStatus,
+} from '../../../core/models/payment.model';
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
-import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { Icon3dComponent } from '../../../shared/components/icon-3d/icon-3d.component';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
@@ -27,8 +32,11 @@ export class PaymentListComponent {
   private auth = inject(AuthService);
   private propertyService = inject(PropertyService);
   private paymentService = inject(PaymentService);
+  private notifications = inject(ErrorNotificationService);
 
   methodLabels = PAYMENT_METHOD_LABELS;
+  statusLabels = PAYMENT_STATUS_LABELS;
+  actionPaymentId = signal<string | null>(null);
 
   payments$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '').pipe(
     switchMap((properties) => {
@@ -45,5 +53,32 @@ export class PaymentListComponent {
 
   countByStatus(items: Payment[], status: PaymentStatus): number {
     return items.filter((payment) => payment.status === status).length;
+  }
+
+  async confirmPayment(payment: Payment): Promise<void> {
+    this.actionPaymentId.set(payment.id);
+    try {
+      const status = payment.amount > 0 ? 'paid' : 'partial';
+      await this.paymentService.confirmPayment(payment.id, status);
+      this.notifications.success('Payment confirmed.');
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not confirm payment.');
+    } finally {
+      this.actionPaymentId.set(null);
+    }
+  }
+
+  async rejectPayment(payment: Payment): Promise<void> {
+    if (!confirm('Reject this reported payment?')) return;
+
+    this.actionPaymentId.set(payment.id);
+    try {
+      await this.paymentService.rejectReportedPayment(payment.id);
+      this.notifications.success('Reported payment removed.');
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not reject payment.');
+    } finally {
+      this.actionPaymentId.set(null);
+    }
   }
 }

@@ -66,18 +66,25 @@ export class DashboardComponent {
 
   private tenantQuickActions: QuickAction[] = [
     {
+      route: '/payments/report',
+      title: 'Report Payment',
+      subtitle: 'Wave, AfriMoney, cash & more',
+      icon: 'collected',
+      tone: 'green',
+    },
+    {
+      route: '/my-payments',
+      title: 'My Payments',
+      subtitle: 'View payment history',
+      icon: 'bills',
+      tone: 'orange',
+    },
+    {
       route: '/requests/new',
       title: 'Report Issue',
       subtitle: 'Submit a maintenance request',
       icon: 'requests',
       tone: 'blue',
-    },
-    {
-      route: '/requests',
-      title: 'My Requests',
-      subtitle: 'View request status',
-      icon: 'pending',
-      tone: 'orange',
     },
   ];
 

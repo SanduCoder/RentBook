@@ -7,8 +7,9 @@ import { PaymentService } from './payment.service';
 import { PropertyService } from './property.service';
 import { TenantService } from './tenant.service';
 import { UnitService } from './unit.service';
-import { Payment } from '../models/payment.model';
+import { PAYMENT_METHOD_LABELS, Payment } from '../models/payment.model';
 import { getMonthStart } from '../utils/firestore.utils';
+import { isTenant, isTenancyLinked } from '../utils/role.utils';
 
 export interface DashboardStats {
   collectedThisMonth: number;
@@ -17,6 +18,7 @@ export interface DashboardStats {
   vacantUnits: number;
   totalUnits: number;
   pendingRequests: number;
+  pendingPaymentReports: number;
   monthlyExpenses: number;
   currency: string;
   collectedTrend: number;
@@ -47,6 +49,22 @@ export class DashboardService {
     const user = this.auth.currentUser();
     if (!user) {
       return of(this.emptyStats());
+    }
+
+    if (isTenant(user.role) && isTenancyLinked(user)) {
+      return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
+        switchMap((payments) =>
+          this.propertyService.getById(user.linkedPropertyId!).pipe(
+            map((property) => ({
+              ...this.emptyStats(),
+              currency: property?.currency ?? 'GMD',
+              pendingPaymentReports: payments.filter((p) => p.status === 'pending_verification')
+                .length,
+            }))
+          )
+        ),
+        catchError(() => of(this.emptyStats()))
+      );
     }
 
     return this.propertyService.getByOwner(user.id).pipe(
@@ -96,6 +114,9 @@ export class DashboardService {
               lastMonthRef
             );
             const pendingRequests = requests.filter((r) => r.status !== 'completed').length;
+            const pendingPaymentReports = payments.filter(
+              (p) => p.status === 'pending_verification'
+            ).length;
 
             return {
               collectedThisMonth,
@@ -104,6 +125,7 @@ export class DashboardService {
               vacantUnits: units.filter((u) => u.status === 'vacant').length,
               totalUnits: units.length,
               pendingRequests,
+              pendingPaymentReports,
               monthlyExpenses,
               currency,
               collectedTrend: this.percentChange(collectedThisMonth, collectedLastMonth),
@@ -120,6 +142,26 @@ export class DashboardService {
     const user = this.auth.currentUser();
     if (!user) return of([]);
 
+    if (isTenant(user.role) && isTenancyLinked(user)) {
+      return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
+        map((payments) =>
+          payments.slice(0, 10).map((p) => ({
+            id: p.id,
+            type: 'payment' as const,
+            message:
+              p.status === 'pending_verification'
+                ? `Payment reported — D${p.amount.toLocaleString()} (${PAYMENT_METHOD_LABELS[p.method]})`
+                : `Payment ${p.status} — D${p.amount.toLocaleString()}`,
+            timestamp: p.date,
+            amount: p.amount,
+            tenantId: p.tenantId,
+            propertyId: p.propertyId,
+          }))
+        ),
+        catchError(() => of([]))
+      );
+    }
+
     return this.propertyService.getByOwner(user.id).pipe(
       switchMap((properties) => {
         const propertyIds = properties.map((p) => p.id);
@@ -133,7 +175,9 @@ export class DashboardService {
             const paymentItems: ActivityItem[] = payments.slice(0, 8).map((p) => ({
               id: p.id,
               type: 'payment' as const,
-              message: `Payment recorded — D${p.amount.toLocaleString()}`,
+              message: p.reportedByTenant
+                ? `Tenant reported D${p.amount.toLocaleString()} via ${PAYMENT_METHOD_LABELS[p.method]}`
+                : `Payment recorded — D${p.amount.toLocaleString()}`,
               timestamp: p.date,
               amount: p.amount,
               tenantId: p.tenantId,
@@ -166,6 +210,7 @@ export class DashboardService {
       vacantUnits: 0,
       totalUnits: 0,
       pendingRequests: 0,
+      pendingPaymentReports: 0,
       monthlyExpenses: 0,
       currency: 'GMD',
       collectedTrend: 0,
