@@ -1,0 +1,205 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isPropertyOwner(propertyId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId == request.auth.uid;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isValidRole(role) {
+      return role in ['owner', 'caretaker', 'property_manager', 'tenant'];
+    }
+
+    function isManagerRole(role) {
+      return role in ['owner', 'caretaker', 'property_manager'];
+    }
+
+    function isAssignedTenant() {
+      return isSignedIn() &&
+        userDoc().role == 'tenant' &&
+        userDoc().linkedPropertyId is string &&
+        userDoc().tenantRecordId is string;
+    }
+
+    function isPendingTenantAssignment(ownerId) {
+      return isSignedIn() && resource.data.linkedOwnerId == ownerId &&
+        (!('tenantRecordId' in resource.data) || resource.data.tenantRecordId == null);
+    }
+
+    function profileOnlyUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['name', 'phone', 'photoUrl']);
+    }
+
+    function ownerInviteCodeUpdate() {
+      return isManagerRole(resource.data.role) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerInviteCode']);
+    }
+
+    function tenantOwnerLinkUpdate() {
+      return resource.data.role != 'tenant' &&
+        request.resource.data.role == 'tenant' &&
+        request.resource.data.linkedOwnerId is string &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['linkedOwnerId', 'role']);
+    }
+
+    function tenantPropertyLinkUpdate() {
+      return request.resource.data.role == 'tenant' &&
+        request.resource.data.linkedPropertyId is string &&
+        (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['linkedOwnerId', 'linkedPropertyId', 'role']) ||
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['linkedPropertyId', 'role'])
+        );
+    }
+
+    function tenantRecordLinkUpdate() {
+      return resource.data.role == 'tenant' &&
+        resource.data.linkedPropertyId is string &&
+        request.resource.data.tenantRecordId is string &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tenantRecordId']);
+    }
+
+    function tenantPropertyJoinUpdate() {
+      return request.resource.data.role == 'tenant' &&
+        request.resource.data.linkedPropertyId is string &&
+        request.resource.data.tenantRecordId is string &&
+        (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['linkedOwnerId', 'linkedPropertyId', 'tenantRecordId', 'role']) ||
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['linkedPropertyId', 'tenantRecordId', 'role'])
+        );
+    }
+
+    match /inviteCodes/{codeId} {
+      allow get: if isSignedIn() && (
+        resource.data.active == true ||
+        resource.data.ownerId == request.auth.uid
+      );
+      allow create: if isSignedIn() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.resource.data.active == true;
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId ||
+        resource.data.linkedOwnerId == request.auth.uid
+      );
+      allow create: if isSignedIn() &&
+        request.auth.uid == userId &&
+        request.resource.data.keys().hasOnly(['name', 'phone', 'email', 'role', 'createdAt']) &&
+        isValidRole(request.resource.data.role) &&
+        request.resource.data.name is string &&
+        request.resource.data.phone is string &&
+        request.resource.data.email is string;
+      allow update: if isSignedIn() && (
+        (
+          request.auth.uid == userId && (
+            profileOnlyUpdate() ||
+            ownerInviteCodeUpdate() ||
+            tenantOwnerLinkUpdate() ||
+            tenantPropertyLinkUpdate() ||
+            tenantPropertyJoinUpdate() ||
+            tenantRecordLinkUpdate()
+          )
+        ) ||
+        (
+          isPendingTenantAssignment(request.auth.uid) &&
+          request.resource.data.tenantRecordId is string &&
+          request.resource.data.linkedPropertyId is string &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['tenantRecordId', 'linkedPropertyId'])
+        )
+      );
+    }
+
+    match /properties/{propertyId} {
+      allow read: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /units/{unitId} {
+      allow read: if isSignedIn() && (
+        isPropertyOwner(resource.data.propertyId) ||
+        resource.data.status == 'vacant'
+      );
+      allow create: if isSignedIn() && isPropertyOwner(request.resource.data.propertyId);
+      allow update: if isSignedIn() && (
+        isPropertyOwner(resource.data.propertyId) ||
+        (
+          resource.data.status == 'vacant' &&
+          request.resource.data.status == 'occupied' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          userDoc().linkedPropertyId == resource.data.propertyId
+        )
+      );
+      allow delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+    }
+
+    match /tenants/{tenantId} {
+      allow read: if isSignedIn() && (
+        isPropertyOwner(resource.data.propertyId) ||
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if isSignedIn() && (
+        isPropertyOwner(request.resource.data.propertyId) ||
+        (
+          request.resource.data.userId == request.auth.uid &&
+          userDoc().linkedPropertyId == request.resource.data.propertyId
+        )
+      );
+      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow create: if isSignedIn() && isPropertyOwner(request.resource.data.propertyId);
+      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow create: if isSignedIn() && isPropertyOwner(request.resource.data.propertyId);
+      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+    }
+
+    match /maintenanceRequests/{requestId} {
+      allow read: if isSignedIn() && (
+        isPropertyOwner(resource.data.propertyId) ||
+        (
+          isAssignedTenant() &&
+          resource.data.tenantId == userDoc().tenantRecordId
+        )
+      );
+      allow create: if isSignedIn() && (
+        isPropertyOwner(request.resource.data.propertyId) ||
+        (
+          isAssignedTenant() &&
+          request.resource.data.propertyId == userDoc().linkedPropertyId &&
+          request.resource.data.tenantId == userDoc().tenantRecordId
+        )
+      );
+      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+    }
+
+    match /sharedBills/{billId} {
+      allow read: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow create: if isSignedIn() && isPropertyOwner(request.resource.data.propertyId);
+      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+    }
+  }
+}

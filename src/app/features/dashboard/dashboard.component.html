@@ -1,0 +1,172 @@
+<div class="dashboard">
+  @if (stats$ | async; as stats) {
+    <header class="hero">
+      <div class="hero-art" aria-hidden="true">
+        <svg viewBox="0 0 200 120" fill="none">
+          <rect x="118" y="38" width="34" height="58" rx="3" fill="rgba(255,255,255,0.14)" />
+          <rect x="156" y="24" width="40" height="72" rx="3" fill="rgba(255,255,255,0.2)" />
+          <rect x="98" y="52" width="22" height="44" rx="2" fill="rgba(255,255,255,0.1)" />
+          <circle cx="176" cy="18" r="10" fill="rgba(255,255,255,0.12)" />
+          <path d="M0 96 Q40 82 80 90 T160 88 T220 94 V120 H0 Z" fill="rgba(255,255,255,0.08)" />
+        </svg>
+      </div>
+
+      <!-- <div class="hero-top">
+        <button type="button" class="icon-btn notif-btn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5" />
+            <path d="M10 20a2 2 0 004 0" />
+          </svg>
+          @if (stats.pendingRequests > 0) {
+            <span class="notif-badge">{{ stats.pendingRequests }}</span>
+          }
+        </button>
+      </div> -->
+
+      <p class="hero-greeting">{{ greeting() }}</p>
+      <h1 class="hero-name">{{ displayName() }}</h1>
+    </header>
+
+    @if (pendingTenancyLink()) {
+      <div class="pending-link-banner">
+        <p>You're connected to your landlord. Enter their <strong>property code</strong> to pick your unit and finish setup.</p>
+        <a routerLink="/join" class="btn-primary btn-sm">Complete setup</a>
+      </div>
+    }
+
+    <div class="overview-panel">
+      @if (canManage()) {
+      <h2 class="overview-title">This Month Overview</h2>
+
+      <div class="stats-grid">
+        <div class="metric-card metric-collected">
+          <div class="metric-head">
+            <span class="metric-icon"><app-icon-3d name="collected" /></span>
+            <span class="metric-label">Collected</span>
+          </div>
+          <span class="metric-value">{{ stats.collectedThisMonth | currencyFormat: stats.currency }}</span>
+          <span class="metric-trend">{{ trendLabel(stats.collectedTrend) }}</span>
+        </div>
+
+        <div class="metric-card metric-outstanding">
+          <div class="metric-head">
+            <span class="metric-icon"><app-icon-3d name="outstanding" /></span>
+            <span class="metric-label">Outstanding</span>
+          </div>
+          <span class="metric-value">{{ stats.outstandingRent | currencyFormat: stats.currency }}</span>
+          <span class="metric-trend">{{ trendLabel(stats.outstandingTrend) }}</span>
+        </div>
+
+        <div class="metric-card metric-occupancy">
+          <div class="metric-head">
+            <span class="metric-icon"><app-icon-3d name="occupancy" /></span>
+            <span class="metric-label">Occupancy</span>
+          </div>
+          <span class="metric-value">
+            {{ stats.totalUnits ? stats.occupiedUnits + ' / ' + stats.totalUnits : '0 / 0' }}
+          </span>
+          <span class="metric-trend">Rooms</span>
+        </div>
+
+        <div class="metric-card metric-pending">
+          <div class="metric-head">
+            <span class="metric-icon"><app-icon-3d name="pending" /></span>
+            <span class="metric-label">Pending Requests</span>
+          </div>
+          <span class="metric-value">{{ stats.pendingRequests }}</span>
+          <span class="metric-trend">Needs your action</span>
+        </div>
+      </div>
+      } @else if (pendingTenancyLink()) {
+        <h2 class="overview-title">Almost there</h2>
+        <p class="tenant-overview-hint">Your landlord has been notified. Ask them for the property code, then complete setup to link your unit.</p>
+      } @else {
+        <h2 class="overview-title">Your Home</h2>
+        <p class="tenant-overview-hint">Report maintenance issues and track your requests from quick actions below.</p>
+      }
+    </div>
+  } @else {
+    <header class="hero hero-loading">
+      <div class="hero-top">
+        <span class="icon-btn skeleton-circle"></span>
+        <span class="icon-btn skeleton-circle"></span>
+      </div>
+      <p class="hero-greeting skeleton-line"></p>
+      <h1 class="hero-name skeleton-line wide"></h1>
+    </header>
+    <div class="overview-panel">
+      <h2 class="overview-title">This Month Overview</h2>
+      <div class="stats-grid">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="metric-card skeleton-card"></div>
+        }
+      </div>
+    </div>
+  }
+
+  <section class="activity-section">
+    <div class="section-header">
+      <h2>Recent Activity</h2>
+      <a routerLink="/requests" class="view-all">View all</a>
+    </div>
+
+    @if (activity$ | async; as activities) {
+      @if (activities.length === 0) {
+        <div class="empty-activity">
+          @if (canManage()) {
+            <p>No activity yet. Record your first payment to get started.</p>
+            <a routerLink="/payments/new" class="btn-primary btn-sm">Record Payment</a>
+          } @else {
+            <p>No activity yet. Submit a maintenance request when you need help.</p>
+            <a routerLink="/requests/new" class="btn-primary btn-sm">Report Issue</a>
+          }
+        </div>
+      } @else {
+        <ul class="activity-list">
+          @for (item of activities; track item.id) {
+            <li>
+              <a [routerLink]="activityLink(item)" class="activity-link">
+                <span class="activity-icon" [class]="activityStatus(item)">
+                  {{ activityIcon(item) }}
+                </span>
+                <div class="activity-content">
+                  <p class="activity-text">{{ item.message }}</p>
+                  <time>{{ item.timestamp | date: 'MMM d, yyyy · h:mm a' }}</time>
+                </div>
+                <span class="activity-status" [class]="activityStatus(item)">
+                  @if (activityStatus(item) === 'success') {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path d="M5 13l4 4L19 7" />
+                    </svg>
+                  } @else {
+                    <span class="dot"></span>
+                  }
+                </span>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </section>
+
+  <section class="quick-actions-section">
+    <h2 class="section-title">Quick Actions</h2>
+    <div class="quick-actions">
+      @for (action of quickActions(); track action.route) {
+        <a [routerLink]="action.route" class="action-card">
+          <span class="action-icon" [class]="action.tone">
+            <app-icon-3d [name]="action.icon" />
+          </span>
+          <div class="action-text">
+            <strong>{{ action.title }}</strong>
+            <span>{{ action.subtitle }}</span>
+          </div>
+          <svg class="action-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </a>
+      }
+    </div>
+  </section>
+</div>

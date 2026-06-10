@@ -1,0 +1,191 @@
+<div class="tenants-page">
+  <header class="hero">
+    <div class="hero-top">
+      <a routerLink="/more" class="icon-btn" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 6l-6 6 6 6" />
+        </svg>
+      </a>
+      <h1>Tenants</h1>
+      <span class="icon-spacer"></span>
+    </div>
+
+    <div class="search-row">
+      <label class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-3-3" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search tenants…"
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event)"
+        />
+      </label>
+      <button type="button" class="filter-btn" aria-label="Filter">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M7 12h10M10 18h4" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="content">
+    @if (pendingTenants$ | async; as pendingTenants) {
+      @if (filterPending(pendingTenants).length > 0) {
+        <section class="pending-section">
+          <div class="section-head">
+            <h2>Pending assignment</h2>
+            <span class="pending-count">{{ filterPending(pendingTenants).length }}</span>
+          </div>
+          <p class="section-hint">These tenants joined with your owner code and need a property and unit.</p>
+
+          <ul class="pending-list">
+            @for (user of filterPending(pendingTenants); track user.id) {
+              <li class="pending-card">
+                <div class="pending-main">
+                  <div class="avatar">{{ user.name.charAt(0) }}</div>
+                  <div class="pending-info">
+                    <h3>{{ user.name }}</h3>
+                    <p>{{ user.phone }}</p>
+                    @if (user.email) {
+                      <p class="email-line">{{ user.email }}</p>
+                    }
+                    <p class="joined-line">Joined {{ user.createdAt | date: 'MMM d, yyyy' }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="assign-toggle"
+                    (click)="startAssign(user.id)"
+                  >
+                    {{ assigningUserId() === user.id ? 'Cancel' : 'Assign' }}
+                  </button>
+                </div>
+
+                @if (assigningUserId() === user.id) {
+                  <form
+                    class="assign-form"
+                    [formGroup]="assignForm"
+                    (ngSubmit)="submitAssign(user)"
+                  >
+                    @if (assignError()) {
+                      <p class="assign-error">{{ assignError() }}</p>
+                    }
+
+                    <label class="assign-field">
+                      <span>Property</span>
+                      <select
+                        formControlName="propertyId"
+                        (change)="onAssignPropertyChange(assignForm.controls.propertyId.value)"
+                      >
+                        <option value="">Select property</option>
+                        @if (properties$ | async; as properties) {
+                          @for (property of properties; track property.id) {
+                            <option [value]="property.id">{{ property.name }}</option>
+                          }
+                        }
+                      </select>
+                    </label>
+
+                    <label class="assign-field">
+                      <span>Unit</span>
+                      <select
+                        formControlName="unitId"
+                        (change)="onAssignUnitSelected(assignForm.controls.unitId.value)"
+                      >
+                        <option value="">Select vacant unit</option>
+                        @for (unit of vacantUnits(); track unit.id) {
+                          <option [value]="unit.id">{{ unit.name }}</option>
+                        }
+                        @if (assignForm.controls.propertyId.value && vacantUnits().length === 0) {
+                          <option value="" disabled>No vacant units</option>
+                        }
+                      </select>
+                    </label>
+
+                    <div class="assign-row">
+                      <label class="assign-field">
+                        <span>Monthly rent</span>
+                        <input type="number" formControlName="monthlyRent" min="0" />
+                      </label>
+                      <label class="assign-field">
+                        <span>Due day</span>
+                        <input type="number" formControlName="dueDay" min="1" max="28" />
+                      </label>
+                    </div>
+
+                    <label class="assign-field">
+                      <span>Move-in date</span>
+                      <input type="date" formControlName="moveInDate" />
+                    </label>
+
+                    <button
+                      type="submit"
+                      class="assign-submit"
+                      [disabled]="assignForm.invalid || assigning()"
+                    >
+                      {{ assigning() ? 'Assigning…' : 'Assign to unit' }}
+                    </button>
+                  </form>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+
+    @if (pendingTenants$ | async; as pendingTenants) {
+      @if (tenants$ | async; as tenants) {
+      @if (filterTenants(tenants).length === 0 && filterPending(pendingTenants).length === 0) {
+        <app-empty-state
+          icon="👥"
+          [title]="search() ? 'No tenants found' : 'No tenants yet'"
+          [message]="search() ? 'Try a different name, room, or phone number.' : 'Add tenants from a property to see them here.'"
+        >
+          @if (!search()) {
+            <a routerLink="/properties" class="btn-primary">Go to Properties</a>
+          }
+        </app-empty-state>
+      } @else if (filterTenants(tenants).length > 0) {
+        @if (filterPending(pendingTenants).length > 0) {
+          <h2 class="assigned-heading">Assigned tenants</h2>
+        }
+        <ul class="tenant-list">
+          @for (item of filterTenants(tenants); track item.tenant.id) {
+            <li>
+              <a [routerLink]="['/tenants', item.tenant.id]" class="tenant-card">
+                <div class="avatar">{{ item.tenant.name.charAt(0) }}</div>
+                <div class="tenant-info">
+                  <div class="tenant-top">
+                    <h3>{{ item.tenant.name }}</h3>
+                    <span class="status-badge" [class]="item.rentStatus.status">
+                      {{ item.rentStatus.statusLabel }}
+                    </span>
+                  </div>
+                  <p class="unit-line">{{ item.unitName }}</p>
+                  <p class="property-line">{{ item.propertyName }}</p>
+                  <div class="tenant-bottom">
+                    <p class="rent-line">
+                      {{ item.tenant.monthlyRent | currencyFormat: item.currency }} / month
+                    </p>
+                    <p class="date-line" [class]="item.rentStatus.status">
+                      {{ item.rentStatus.dateLabel }}:
+                      {{ item.rentStatus.dateValue | date: 'MMM d, yyyy' }}
+                    </p>
+                  </div>
+                </div>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+      }
+    }
+  </div>
+
+  <div class="footer-action">
+    <a routerLink="/tenants/new" class="add-tenant-btn">+ Add Tenant</a>
+  </div>
+</div>

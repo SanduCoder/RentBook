@@ -1,0 +1,48 @@
+<nav class="bottom-nav" aria-label="Main navigation">
+  <a
+    routerLink="/dashboard"
+    routerLinkActive="active"
+    [routerLinkActiveOptions]="{ exact: true }"
+    class="nav-item"
+  >
+    <span class="nav-icon" aria-hidden="true">
+      <app-icon-3d name="home" />
+    </span>
+    <span class="nav-label">Home</span>
+  </a>
+
+  @if (canManage()) {
+    <a routerLink="/properties" routerLinkActive="active" class="nav-item">
+      <span class="nav-icon" aria-hidden="true">
+        <app-icon-3d name="properties" />
+      </span>
+      <span class="nav-label">Properties</span>
+    </a>
+  }
+
+  <a
+    [routerLink]="canManage() ? '/payments/new' : '/requests/new'"
+    class="nav-item fab"
+    [attr.aria-label]="canManage() ? 'Record payment' : 'New maintenance request'"
+  >
+    <span class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+    </span>
+  </a>
+
+  <a routerLink="/requests" routerLinkActive="active" class="nav-item">
+    <span class="nav-icon" aria-hidden="true">
+      <app-icon-3d name="requests" />
+    </span>
+    <span class="nav-label">Requests</span>
+  </a>
+
+  <a routerLink="/more" routerLinkActive="active" class="nav-item">
+    <span class="nav-icon" aria-hidden="true">
+      <app-icon-3d name="more" />
+    </span>
+    <span class="nav-label">More</span>
+  </a>
+</nav>

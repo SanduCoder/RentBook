@@ -1,0 +1,182 @@
+@if (state$ | async; as state) {
+  @switch (state.status) {
+    @case ('loading') {
+      <div class="tenant-detail state-screen">
+        <p>Loading tenant…</p>
+      </div>
+    }
+    @case ('missing') {
+      <div class="tenant-detail state-screen">
+        <p>Tenant not found.</p>
+        <a routerLink="/tenants" class="back-link">← Back to tenants</a>
+      </div>
+    }
+    @case ('error') {
+      <div class="tenant-detail state-screen">
+        <p>Could not load tenant details.</p>
+        <a routerLink="/tenants" class="back-link">← Back to tenants</a>
+      </div>
+    }
+    @case ('ready') {
+      @if (state.data; as vm) {
+        <div class="tenant-detail">
+          <header class="hero">
+            <div class="hero-top">
+              <a routerLink="/tenants" class="icon-btn" aria-label="Back">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 6l-6 6 6 6" />
+                </svg>
+              </a>
+              <span class="icon-spacer"></span>
+              @if (vm.property) {
+                <a
+                  [routerLink]="['/properties', vm.property.id]"
+                  [queryParams]="{ tab: 'tenants' }"
+                  class="icon-btn"
+                  aria-label="Property"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="5" r="1.5" />
+                    <circle cx="12" cy="12" r="1.5" />
+                    <circle cx="12" cy="19" r="1.5" />
+                  </svg>
+                </a>
+              } @else {
+                <span class="icon-spacer"></span>
+              }
+            </div>
+          </header>
+
+          <div class="profile-section">
+            <div class="profile-avatar">{{ vm.tenant.name.charAt(0) }}</div>
+            <h1>{{ vm.tenant.name }}</h1>
+            <p class="subtitle">{{ vm.unitName }} · {{ vm.propertyName }}</p>
+            <span class="status-badge" [class]="vm.rentStatus.status">{{ vm.rentStatus.statusLabel }}</span>
+          </div>
+
+          <section class="property-section">
+            <div class="section-heading">
+              <h2>Property</h2>
+              @if (vm.property) {
+                <a [routerLink]="['/properties', vm.property.id]" class="view-link">View property</a>
+              }
+            </div>
+            @if (vm.property; as property) {
+              <a
+                [routerLink]="['/properties', property.id]"
+                [queryParams]="{ tab: 'tenants' }"
+                class="property-card"
+              >
+                <div class="property-thumb" [class]="'thumb-' + property.type">
+                  @if (property.imageUrl) {
+                    <img [src]="property.imageUrl" [alt]="property.name" />
+                  } @else {
+                    <span>🏠</span>
+                  }
+                </div>
+                <div class="property-info">
+                  <h3>{{ property.name }}</h3>
+                  <p class="property-address">{{ property.address }}</p>
+                  <p class="property-meta">
+                    {{ propertyTypeLabels[property.type] }} · {{ locationLabel(property.address) }}
+                  </p>
+                  <p class="property-unit">Unit: {{ vm.unitName }}</p>
+                </div>
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 6l6 6-6 6" />
+                </svg>
+              </a>
+            } @else {
+              <div class="property-card static">
+                <div class="property-thumb thumb-compound"><span>🏠</span></div>
+                <div class="property-info">
+                  <h3>{{ vm.propertyName }}</h3>
+                  <p class="property-unit">Unit: {{ vm.unitName }}</p>
+                </div>
+              </div>
+            }
+          </section>
+
+          <div class="info-card">
+            <div class="section-heading compact">
+              <h2>Tenant Details</h2>
+            </div>
+            <div class="info-row">
+              <span class="label">Monthly Rent</span>
+              <span class="value">{{ vm.tenant.monthlyRent | currencyFormat: vm.currency }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Next Due Date</span>
+              <span class="value">{{ vm.rentStatus.dateValue | date: 'MMMM d, yyyy' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Move In Date</span>
+              <span class="value">{{ vm.tenant.moveInDate | date: 'MMMM d, yyyy' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Phone</span>
+              <a [href]="'tel:' + vm.tenant.phone" class="value link">{{ vm.tenant.phone }}</a>
+            </div>
+            @if (vm.tenant.email) {
+              <div class="info-row">
+                <span class="label">Email</span>
+                <a [href]="'mailto:' + vm.tenant.email" class="value link">{{ vm.tenant.email }}</a>
+              </div>
+            }
+          </div>
+
+          <section class="quick-actions">
+            <h2>Quick Actions</h2>
+            <div class="action-grid">
+              <a [routerLink]="['/payments/new']" [queryParams]="{ tenantId: vm.tenant.id }" class="action-item">
+                <span class="action-icon paid">💰</span>
+                <span>Record Payment</span>
+              </a>
+              <button type="button" class="action-item" (click)="scrollToHistory()">
+                <span class="action-icon history">📄</span>
+                <span>Payment History</span>
+              </button>
+              <a
+                [href]="reminderLink(vm.tenant, vm.tenant.monthlyRent, vm.currency)"
+                target="_blank"
+                class="action-item"
+              >
+                <span class="action-icon reminder">🔔</span>
+                <span>Send Reminder</span>
+              </a>
+              <a [href]="whatsAppLink(vm.tenant.phone)" target="_blank" class="action-item">
+                <span class="action-icon whatsapp">💬</span>
+                <span>WhatsApp</span>
+              </a>
+              <a [href]="'tel:' + vm.tenant.phone" class="action-item">
+                <span class="action-icon call">📞</span>
+                <span>Call Tenant</span>
+              </a>
+            </div>
+          </section>
+
+          <section class="section" id="payment-history">
+            <h2>Payment History</h2>
+            @if (vm.payments.length === 0) {
+              <p class="empty-text">No payments recorded yet.</p>
+            } @else {
+              <ul class="payment-list">
+                @for (payment of vm.payments; track payment.id) {
+                  <li>
+                    <div>
+                      <span class="amount">{{ payment.amount | currencyFormat: vm.currency }}</span>
+                      <span class="meta">
+                        {{ methodLabels[payment.method] }} · {{ payment.date | date: 'mediumDate' }}
+                      </span>
+                    </div>
+                    <span class="status" [class]="payment.status">{{ payment.status }}</span>
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+        </div>
+      }
+    }
+  }
+}

@@ -1,0 +1,207 @@
+<div class="maintenance-page">
+  <header class="page-header-bar">
+    <h1>Maintenance Requests</h1>
+  </header>
+
+  @if (requests$ | async; as requests) {
+    <nav class="tabs-bar">
+      @for (tab of tabs; track tab.id) {
+        <button
+          type="button"
+          class="tab"
+          [class.active]="filter() === tab.id"
+          (click)="setFilter(tab.id)"
+        >
+          {{ tab.label }}
+        </button>
+      }
+    </nav>
+
+    <div class="stat-cards">
+      <button
+        type="button"
+        class="stat-card stat-open"
+        [class.active]="filter() === 'open'"
+        (click)="setFilter('open')"
+      >
+        <span class="stat-icon" aria-hidden="true">
+          <app-icon-3d name="requests" />
+        </span>
+        <span class="stat-count">{{ countByStatus(requests, 'open') }}</span>
+        <span class="stat-label">Open</span>
+      </button>
+
+      <button
+        type="button"
+        class="stat-card stat-progress"
+        [class.active]="filter() === 'assigned'"
+        (click)="setFilter('assigned')"
+      >
+        <span class="stat-icon" aria-hidden="true">
+          <app-icon-3d name="pending" />
+        </span>
+        <span class="stat-count">{{ countByStatus(requests, 'assigned') }}</span>
+        <span class="stat-label">In Progress</span>
+      </button>
+
+      <button
+        type="button"
+        class="stat-card stat-completed"
+        [class.active]="filter() === 'completed'"
+        (click)="setFilter('completed')"
+      >
+        <span class="stat-icon" aria-hidden="true">
+          <app-icon-3d name="collected" />
+        </span>
+        <span class="stat-count">{{ countByStatus(requests, 'completed') }}</span>
+        <span class="stat-label">Completed</span>
+      </button>
+
+      <button type="button" class="stat-card stat-total" (click)="setFilter('open')">
+        <span class="stat-icon" aria-hidden="true">
+          <app-icon-3d name="outstanding" />
+        </span>
+        <span class="stat-count">{{ requests.length }}</span>
+        <span class="stat-label">Total</span>
+      </button>
+    </div>
+
+    <div class="content">
+      @if (filteredRequests(requests).length === 0) {
+        <div class="empty-tab">
+          <p>No {{ filter() === 'assigned' ? 'in progress' : filter() }} requests right now.</p>
+        </div>
+      } @else {
+        <ul class="request-list">
+          @for (request of filteredRequests(requests); track request.id) {
+            <li>
+              <article class="request-card">
+                <div class="card-header">
+                  <div class="request-thumb" [class]="'thumb-' + request.category">
+                    @if (request.photos.length > 0) {
+                      <img [src]="request.photos[0]" [alt]="request.title" />
+                    } @else {
+                      <span class="thumb-icon">{{ thumbnailEmoji(request.category) }}</span>
+                    }
+                  </div>
+
+                  <div class="card-head-text">
+                    <h3>{{ request.title }}</h3>
+                    <p class="meta">{{ subtitleLine(request) }}</p>
+                    <p class="date">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                      </svg>
+                      {{ request.createdAt | date: 'MMMM d, yyyy · h:mm a' }}
+                    </p>
+                  </div>
+
+                  <div class="card-head-actions">
+                    <span class="status-badge" [class]="request.status">
+                      {{ statusLabel(request.status) }}
+                    </span>
+                    <button type="button" class="menu-btn" aria-label="Request options">
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="1.5" />
+                        <circle cx="12" cy="12" r="1.5" />
+                        <circle cx="12" cy="19" r="1.5" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="details-grid">
+                  <div class="detail-item">
+                    <span class="detail-icon detail-icon-location" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 21s7-4.5 7-10a7 7 0 10-14 0c0 5.5 7 10 7 10z" />
+                        <circle cx="12" cy="11" r="2.5" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Location</span>
+                      <span class="detail-value">
+                        <span>{{ request.propertyName }}</span>
+                        @if (request.unitName) {
+                          <span>{{ request.unitName }}</span>
+                        }
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="detail-item">
+                    <span class="detail-icon detail-icon-category" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Category</span>
+                      <span class="detail-value">{{ categoryShortLabel(request.category) }}</span>
+                    </div>
+                  </div>
+
+                  <div class="detail-item">
+                    <span class="detail-icon detail-icon-priority" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 8v4M12 16h.01" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Priority</span>
+                      <span class="detail-value" [class]="priorityClass(request.category)">
+                        {{ priorityLabel(request.category) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card-footer">
+                  <div class="comment-preview">
+                    <span class="comment-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                      </svg>
+                    </span>
+                    <div class="comment-text">
+                      @if (request.description.trim(); as description) {
+                        <span class="comment-primary">{{ description }}</span>
+                      } @else {
+                        <span class="comment-primary">No comments yet</span>
+                        <span class="comment-secondary">Be the first to update</span>
+                      }
+                    </div>
+                  </div>
+
+                  @if (nextStatus(request.status); as next) {
+                    <button
+                      type="button"
+                      class="start-btn"
+                      [disabled]="updating() === request.id"
+                      (click)="advanceStatus(request)"
+                    >
+                      {{ updating() === request.id ? 'Updating…' : advanceLabel(request.status) }}
+                    </button>
+                  }
+                </div>
+              </article>
+            </li>
+          }
+        </ul>
+      }
+
+      <div class="footer-cta">
+        <div class="cta-art" aria-hidden="true">🧰</div>
+        <p>Need something fixed? Submit a new maintenance request and we'll take care of it.</p>
+        <a routerLink="/requests/new" class="new-request-btn">+ New Request</a>
+      </div>
+    </div>
+  } @else {
+    <div class="content loading">
+      <div class="skeleton-stat-row"></div>
+      <div class="skeleton-card"></div>
+    </div>
+  }
+</div>

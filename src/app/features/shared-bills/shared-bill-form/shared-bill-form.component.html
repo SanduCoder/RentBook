@@ -1,0 +1,65 @@
+<div class="form-page">
+<a href="#" class="back-link" (click)="cancel($event)">← Cancel</a>
+
+<app-page-header title="Add Shared Bill" subtitle="Split a bill among households" />
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
+  @if (properties$ | async; as properties) {
+    <label>
+      Property
+      <select formControlName="propertyId">
+        <option value="" disabled>Select property</option>
+        @for (property of properties; track property.id) {
+          <option [value]="property.id">{{ property.name }}</option>
+        }
+      </select>
+    </label>
+  }
+
+  <label>
+    Bill Type
+    <select formControlName="type">
+      @for (type of billTypes; track type.value) {
+        <option [value]="type.value">{{ type.label }}</option>
+      }
+    </select>
+  </label>
+
+  <label>
+    Total Amount
+    <input type="number" formControlName="amount" placeholder="e.g. 4000" />
+  </label>
+
+  <label>
+    Number of Households
+    <input type="number" formControlName="households" min="1" placeholder="e.g. 12" />
+  </label>
+
+  @if (form.controls.amount.value > 0 && form.controls.households.value > 0) {
+    <div class="preview-card">
+      <span class="preview-label">Each household pays</span>
+      <span class="preview-amount">{{ calcPerHousehold() | currencyFormat }}</span>
+      <span class="preview-detail">
+        {{ form.controls.amount.value | currencyFormat }} ÷ {{ form.controls.households.value }} households
+      </span>
+    </div>
+  }
+
+  <label>
+    Date
+    <input type="date" formControlName="date" />
+  </label>
+
+  <label>
+    Notes (optional)
+    <textarea formControlName="description" rows="2" placeholder="e.g. March water bill"></textarea>
+  </label>
+
+  <div class="form-actions">
+    <button type="button" class="btn-secondary" (click)="cancel()">Cancel</button>
+    <button type="submit" class="btn-primary" [disabled]="form.invalid || loading()">
+      {{ loading() ? 'Saving…' : 'Save Shared Bill' }}
+    </button>
+  </div>
+</form>
+</div>

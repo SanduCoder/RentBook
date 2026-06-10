@@ -1,0 +1,73 @@
+<div class="form-page">
+@if (propertyId) {
+  <a [routerLink]="['/properties', propertyId]" [queryParams]="{ tab: 'tenants' }" class="back-link">
+    ← Back to property
+  </a>
+} @else {
+  <a routerLink="/tenants" class="back-link">← Cancel</a>
+}
+
+<app-page-header title="Add Tenant" subtitle="Assign a tenant to a unit" />
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
+  @if (properties$ | async; as properties) {
+    <label>
+      Property
+      <select formControlName="propertyId" (change)="onPropertyChange($any($event.target).value)">
+        <option value="" disabled>Select property</option>
+        @for (property of properties; track property.id) {
+          <option [value]="property.id">{{ property.name }}</option>
+        }
+      </select>
+    </label>
+  }
+
+  @if (form.value.propertyId) {
+    @if (units$ | async; as units) {
+      <label>
+        Unit
+        <select formControlName="unitId">
+          <option value="" disabled>Select unit</option>
+          @for (unit of units; track unit.id) {
+            <option [value]="unit.id">{{ unit.name }} — D{{ unit.monthlyRent }}</option>
+          }
+        </select>
+      </label>
+    }
+  }
+
+  <label>
+    Full Name
+    <input type="text" formControlName="name" placeholder="Tenant name" />
+  </label>
+
+  <label>
+    Phone
+    <input type="tel" formControlName="phone" placeholder="+220 XXX XXXX" />
+  </label>
+
+  <label>
+    Email (optional)
+    <input type="email" formControlName="email" />
+  </label>
+
+  <label>
+    Move-in Date
+    <input type="date" formControlName="moveInDate" />
+  </label>
+
+  <label>
+    Monthly Rent
+    <input type="number" formControlName="monthlyRent" />
+  </label>
+
+  <label>
+    Rent Due Day (1–28)
+    <input type="number" formControlName="dueDay" min="1" max="28" />
+  </label>
+
+  <button type="submit" class="btn-primary" [disabled]="form.invalid || loading()">
+    {{ loading() ? 'Saving…' : 'Add Tenant' }}
+  </button>
+</form>
+</div>

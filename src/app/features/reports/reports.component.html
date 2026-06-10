@@ -1,0 +1,68 @@
+<div class="list-page">
+  <header class="page-header-bar">
+    <a routerLink="/more" class="icon-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </a>
+    <h1>Reports</h1>
+    <span class="icon-spacer" aria-hidden="true"></span>
+  </header>
+
+  @if (report$ | async; as report) {
+    <div class="stat-cards">
+      <div class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+          <app-icon-3d name="collected" />
+        </span>
+        <span class="stat-count">{{ report.income | currencyFormat: report.currency }}</span>
+        <span class="stat-label">Income</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+          <app-icon-3d name="expenses" />
+        </span>
+        <span class="stat-count">{{ report.expenses | currencyFormat: report.currency }}</span>
+        <span class="stat-label">Expenses</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+          <app-icon-3d name="reports" />
+        </span>
+        <span class="stat-count" [class.negative]="report.profit < 0">{{ report.profit | currencyFormat: report.currency }}</span>
+        <span class="stat-label">Net Profit</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+          <app-icon-3d name="pending" />
+        </span>
+        <span class="stat-count">{{ monthLabel() }}</span>
+        <span class="stat-label">Period</span>
+      </div>
+    </div>
+
+    <div class="list-content">
+      <div class="summary-cards">
+        <article class="summary-card income-card">
+          <span class="summary-label">Monthly Income</span>
+          <strong>{{ report.income | currencyFormat: report.currency }}</strong>
+          <p>From paid and partial rent payments this month.</p>
+        </article>
+        <article class="summary-card expense-card">
+          <span class="summary-label">Monthly Expenses</span>
+          <strong>{{ report.expenses | currencyFormat: report.currency }}</strong>
+          <p>From recorded property costs this month.</p>
+        </article>
+        <article class="summary-card profit-card" [class.negative]="report.profit < 0">
+          <span class="summary-label">Net Profit</span>
+          <strong>{{ report.profit | currencyFormat: report.currency }}</strong>
+          <p>Income minus expenses for the current month.</p>
+        </article>
+      </div>
+
+      <div class="info-card">
+        <p>Income from paid and partial rent payments this month. Expenses from recorded property costs.</p>
+      </div>
+    </div>
+  }
+</div>

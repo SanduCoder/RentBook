@@ -1,0 +1,122 @@
+<div class="list-page">
+  <header class="page-header-bar">
+    <a routerLink="/more" class="icon-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </a>
+    <h1>Shared Bills</h1>
+    <a routerLink="/shared-bills/new" class="header-action" aria-label="Add shared bill">+</a>
+  </header>
+
+  @if (bills$ | async; as data) {
+    @if (data.items.length > 0) {
+      <div class="stat-cards">
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">
+            <app-icon-3d name="bills" />
+          </span>
+          <span class="stat-count">{{ data.items.length }}</span>
+          <span class="stat-label">Bills</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">
+            <app-icon-3d name="collected" />
+          </span>
+          <span class="stat-count">{{ totalAmount(data) | currencyFormat: data.currency }}</span>
+          <span class="stat-label">Total</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">
+            <app-icon-3d name="tenants" />
+          </span>
+          <span class="stat-count">{{ totalHouseholds(data.items) }}</span>
+          <span class="stat-label">Households</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">
+            <app-icon-3d name="occupancy" />
+          </span>
+          <span class="stat-count">{{ countByType(data.items, 'water') }}</span>
+          <span class="stat-label">Water</span>
+        </div>
+      </div>
+    }
+
+    <div class="list-content">
+      @if (data.items.length === 0) {
+        <app-empty-state
+          icon="💧"
+          title="No shared bills yet"
+          message="Split water, electricity, watchman salary, and other compound costs among households."
+        >
+          <a routerLink="/shared-bills/new" class="btn-primary">Add Shared Bill</a>
+        </app-empty-state>
+      } @else {
+        <ul class="item-list">
+          @for (bill of data.items; track bill.id) {
+            <li>
+              <article class="record-card">
+                <div class="card-header">
+                  <div class="card-thumb" [class]="typeClass(bill.type)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 2.69l5.66 5.66a8 8 0 11-11.32 0z" />
+                    </svg>
+                  </div>
+                  <div class="card-head-text">
+                    <h3>{{ typeLabels[bill.type] }}</h3>
+                    <p class="card-meta">{{ bill.propertyName }}</p>
+                  </div>
+                  <span class="category-badge">{{ bill.date | date: 'MMM d' }}</span>
+                </div>
+                @if (bill.description) {
+                  <p class="bill-description">{{ bill.description }}</p>
+                }
+                <div class="details-grid">
+                  <div class="detail-item">
+                    <span class="detail-icon detail-green" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Total</span>
+                      <span class="detail-value">{{ bill.amount | currencyFormat: data.currency }}</span>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-icon detail-blue" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 21h18M5 21V7l7-4 7 4v14" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Households</span>
+                      <span class="detail-value">{{ bill.households }}</span>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-icon detail-purple" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Each pays</span>
+                      <span class="detail-value highlight">{{ bill.perHousehold | currencyFormat: data.currency }}</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </li>
+          }
+        </ul>
+
+        <div class="footer-cta">
+          <a routerLink="/shared-bills/new" class="cta-btn">+ Add Shared Bill</a>
+        </div>
+      }
+    </div>
+  }
+</div>

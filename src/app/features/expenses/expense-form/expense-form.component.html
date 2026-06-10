@@ -1,0 +1,50 @@
+<div class="form-page">
+<a href="#" class="back-link" (click)="cancel($event)">← Cancel</a>
+
+<app-page-header title="Add Expense" subtitle="Record a property cost" />
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
+  @if (properties$ | async; as properties) {
+    <label>
+      Property
+      <select formControlName="propertyId">
+        <option value="" disabled>Select property</option>
+        @for (property of properties; track property.id) {
+          <option [value]="property.id">{{ property.name }}</option>
+        }
+      </select>
+    </label>
+  }
+
+  <label>
+    Category
+    <select formControlName="category">
+      @for (cat of categories; track cat.value) {
+        <option [value]="cat.value">{{ cat.label }}</option>
+      }
+    </select>
+  </label>
+
+  <label>
+    Amount
+    <input type="number" formControlName="amount" placeholder="0" />
+  </label>
+
+  <label>
+    Date
+    <input type="date" formControlName="date" />
+  </label>
+
+  <label>
+    Description
+    <textarea formControlName="description" rows="2" placeholder="What was this expense for?"></textarea>
+  </label>
+
+  <div class="form-actions">
+    <button type="button" class="btn-secondary" (click)="cancel()">Cancel</button>
+    <button type="submit" class="btn-primary" [disabled]="form.invalid || loading()">
+      {{ loading() ? 'Saving…' : 'Save Expense' }}
+    </button>
+  </div>
+</form>
+</div>

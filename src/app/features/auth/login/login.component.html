@@ -1,0 +1,276 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-hero">
+      <div class="hero-illustration" aria-hidden="true">
+        <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="bgGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#EAF8F0"/>
+              <stop offset="100%" stop-color="#D8F1E4"/>
+            </linearGradient>
+        
+            <linearGradient id="houseGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#1FA463"/>
+              <stop offset="100%" stop-color="#0D7A48"/>
+            </linearGradient>
+        
+            <linearGradient id="roofGradient" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#4FD18B"/>
+              <stop offset="100%" stop-color="#15965A"/>
+            </linearGradient>
+        
+            <linearGradient id="shadowGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#000000" stop-opacity="0.15"/>
+              <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+            </linearGradient>
+        
+            <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0A7A47" flood-opacity="0.18"/>
+            </filter>
+          </defs>
+        
+          <!-- Background Blob -->
+          <path
+            d="M119 119C166 73 253 57 333 88C413 119 454 195 440 274C426 353 358 430 266 440C174 450 83 393 65 307C47 221 72 165 119 119Z"
+            fill="url(#bgGradient)"
+          />
+        
+          <!-- Decorative Circles -->
+          <circle cx="108" cy="185" r="18" fill="#C8EED8"/>
+          <circle cx="405" cy="144" r="12" fill="#C8EED8"/>
+          <circle cx="396" cy="338" r="22" fill="#DDF6E7"/>
+        
+          <!-- House -->
+          <g filter="url(#softShadow)">
+            
+            <!-- Roof -->
+            <path
+              d="M140 232L256 138L372 232"
+              stroke="url(#roofGradient)"
+              stroke-width="22"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+        
+            <!-- Roof Fill -->
+            <path
+              d="M164 230L256 156L348 230V242H164V230Z"
+              fill="url(#roofGradient)"
+            />
+        
+            <!-- House Body -->
+            <rect
+              x="168"
+              y="228"
+              width="176"
+              height="150"
+              rx="26"
+              fill="white"
+            />
+        
+            <!-- Left Wall Accent -->
+            <rect
+              x="168"
+              y="228"
+              width="28"
+              height="150"
+              rx="18"
+              fill="#DDF6E8"
+            />
+        
+            <!-- Door -->
+            <rect
+              x="233"
+              y="292"
+              width="46"
+              height="86"
+              rx="14"
+              fill="url(#houseGradient)"
+            />
+        
+            <!-- Door Knob -->
+            <circle
+              cx="267"
+              cy="336"
+              r="4"
+              fill="white"
+              opacity="0.9"
+            />
+        
+            <!-- Windows -->
+            <rect
+              x="196"
+              y="260"
+              width="42"
+              height="42"
+              rx="10"
+              fill="#E9F8F0"
+            />
+        
+            <rect
+              x="274"
+              y="260"
+              width="42"
+              height="42"
+              rx="10"
+              fill="#E9F8F0"
+            />
+        
+            <!-- Window Panes -->
+            <path
+              d="M217 260V302"
+              stroke="#B8E7CC"
+              stroke-width="4"
+            />
+        
+            <path
+              d="M196 281H238"
+              stroke="#B8E7CC"
+              stroke-width="4"
+            />
+        
+            <path
+              d="M295 260V302"
+              stroke="#B8E7CC"
+              stroke-width="4"
+            />
+        
+            <path
+              d="M274 281H316"
+              stroke="#B8E7CC"
+              stroke-width="4"
+            />
+          </g>
+        
+          <!-- Ground Shadow -->
+          <ellipse
+            cx="256"
+            cy="404"
+            rx="118"
+            ry="24"
+            fill="url(#shadowGradient)"
+            opacity="0.5"
+          />
+        
+          <!-- Trees -->
+          <g opacity="0.95">
+            <rect x="118" y="318" width="10" height="42" rx="5" fill="#8CC8A5"/>
+            <circle cx="123" cy="302" r="28" fill="#7ED9A5"/>
+          </g>
+        
+          <g opacity="0.95">
+            <rect x="384" y="322" width="10" height="38" rx="5" fill="#8CC8A5"/>
+            <circle cx="389" cy="306" r="24" fill="#7ED9A5"/>
+          </g>
+        </svg>
+      </div>
+      <div class="brand">RentBook</div>
+      <p class="tagline">The easiest way to manage rent, tenants, and payments.</p>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="auth-form">
+      <div class="form-heading">
+        <h1>Welcome back</h1>
+        <p>Sign in to your account</p>
+      </div>
+
+      @if (error()) {
+        <div class="error-banner">{{ error() }}</div>
+      }
+
+      @if (info()) {
+        <div class="info-banner">{{ info() }}</div>
+      }
+
+      <div class="field">
+        <span class="field-label">Email</span>
+        <div class="input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M3 7l9 6 9-6" />
+          </svg>
+          <input type="email" formControlName="email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Password</span>
+        <div class="input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V8a4 4 0 118 0v3" />
+          </svg>
+          <input
+            [type]="showPassword() ? 'text' : 'password'"
+            formControlName="password"
+            placeholder="Your password"
+            autocomplete="current-password"
+          />
+          <button type="button" class="toggle-password" (click)="togglePassword()" [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'">
+            @if (showPassword()) {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                <path d="M1 1l22 22M14.12 14.12a3 3 0 11-4.24-4.24" />
+              </svg>
+            } @else {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            }
+          </button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="checkbox">
+          <input type="checkbox" [checked]="rememberMe()" (change)="rememberMe.set($any($event.target).checked)" />
+          <span class="checkbox-box" aria-hidden="true"></span>
+          <span>Remember me</span>
+        </label>
+        <button type="button" class="text-link" (click)="onForgotPassword()">Forgot password?</button>
+      </div>
+
+      <button type="button" class="text-link resend-link" (click)="onResendVerification()">
+        Resend verification email
+      </button>
+
+      <button type="submit" class="btn-submit" [disabled]="form.invalid || loading()">
+        {{ loading() ? 'Signing in…' : 'Sign In' }}
+      </button>
+
+      <div class="divider"><span>or continue with</span></div>
+
+      <div class="social-row">
+        <button type="button" class="social-btn" (click)="onSocialLogin('google')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-1.6 3.5-5.1 3.5-3.1 0-5.6-2.5-5.6-5.6S8.9 6.1 12 6.1c1.8 0 3 .8 3.7 1.4l2.5-2.4C16.9 3.8 14.7 3 12 3 7 3 3 7 3 12s4 9 9 9 9-4 9-9c0-.6-.1-1.2-.2-1.8H12z" />
+          </svg>
+          Google
+        </button>
+        <button type="button" class="social-btn" (click)="onSocialLogin('apple')">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M16.7 12.7c-.1-2.2 1.8-3.3 1.9-3.4-1-.1-2.1.6-2.6.6-.6 0-1.4-.6-2.3-.6-1.2 0-2.3.7-2.9 1.8-1.2 2.1-.3 5.3.9 7 .6.9 1.3 1.9 2.2 1.9.9 0 1.2-.6 2.3-.6 1.1 0 1.4.6 2.3.6.9 0 1.5-.9 2.1-1.8.7-.9 1-1.9 1-1.9s-1.9-.7-1.9-2.8zM14.9 5.2c.5-.6.9-1.5.8-2.3-.8 0-1.7.5-2.2 1.1-.5.6-.9 1.5-.8 2.3.9.1 1.7-.4 2.2-1.1z" />
+          </svg>
+          Apple
+        </button>
+      </div>
+    </form>
+
+    <p class="auth-footer">
+      Don't have an account? <a routerLink="/register">Create one</a>
+    </p>
+    <p class="auth-footer secondary">
+      Have an invite code? <a routerLink="/join">Link your tenancy</a>
+    </p>
+
+    <div class="security-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="M9 12l2 2 4-4" />
+      </svg>
+      <span>Your data is safe and secure with us.</span>
+    </div>
+  </div>
+</div>

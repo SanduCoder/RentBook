@@ -1,0 +1,55 @@
+.category-badge {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: #ebf8ff;
+  color: #3182ce;
+  line-height: 1.2;
+}
+
+.thumb-water {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.thumb-electricity {
+  background: #fef9c3;
+  color: #ca8a04;
+}
+
+.thumb-watchman,
+.thumb-garbage,
+.thumb-gate_repairs,
+.thumb-community_fees,
+.thumb-other {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.bill-description {
+  margin: -0.25rem 0 0.75rem;
+  font-size: 0.8125rem;
+  color: #718096;
+  line-height: 1.4;
+}
+
+.detail-green {
+  background: #f0fff4;
+  color: #38a169;
+}
+
+.detail-blue {
+  background: #ebf8ff;
+  color: #3182ce;
+}
+
+.detail-purple {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.detail-value.highlight {
+  color: #15803d;
+}

@@ -1,0 +1,76 @@
+<div class="form-page">
+@if (success()) {
+  <div class="success-screen">
+    <div class="success-icon">✓</div>
+    <h1>Payment Recorded</h1>
+    <p>Receipt #{{ receiptNumber() }}</p>
+    <button type="button" class="btn-primary" (click)="done()">
+      {{ preselectedPropertyId ? 'Back to Property' : 'Done' }}
+    </button>
+  </div>
+} @else {
+  <a href="#" class="back-link" (click)="cancel($event)">← Cancel</a>
+
+  <app-page-header title="Record Payment" subtitle="Log a rent payment" />
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
+    @if (tenants$ | async; as tenants) {
+      <label>
+        Tenant
+        <select formControlName="tenantId">
+          <option value="" disabled>Select tenant</option>
+          @for (tenant of tenants; track tenant.id) {
+            <option [value]="tenant.id">{{ tenant.name }} — D{{ tenant.monthlyRent }}</option>
+          }
+        </select>
+      </label>
+    }
+
+    <label>
+      Amount
+      <input type="number" formControlName="amount" placeholder="0" />
+    </label>
+
+    <label>
+      Payment Method
+      <select formControlName="method">
+        @for (method of methods; track method.value) {
+          <option [value]="method.value">{{ method.label }}</option>
+        }
+      </select>
+    </label>
+
+    <label>
+      Reference (optional)
+      <input type="text" formControlName="reference" placeholder="Transaction ID" />
+    </label>
+
+    <label>
+      Date
+      <input type="date" formControlName="date" />
+    </label>
+
+    <label>
+      Status
+      <select formControlName="status">
+        <option value="paid">Paid</option>
+        <option value="partial">Partial</option>
+        <option value="upcoming">Upcoming</option>
+        <option value="late">Late</option>
+      </select>
+    </label>
+
+    <label>
+      Notes (optional)
+      <textarea formControlName="notes" rows="2" placeholder="Any additional notes"></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button type="button" class="btn-secondary" (click)="cancel()">Cancel</button>
+      <button type="submit" class="btn-primary" [disabled]="form.invalid || loading()">
+        {{ loading() ? 'Saving…' : 'Save Payment' }}
+      </button>
+    </div>
+  </form>
+}
+</div>

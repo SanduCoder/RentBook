@@ -1,0 +1,77 @@
+<div class="account-page">
+  <header class="page-header-bar">
+    <a href="#" class="icon-btn" aria-label="Back" (click)="goBack($event)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </a>
+    <h1>My Account</h1>
+    <span class="icon-spacer" aria-hidden="true"></span>
+  </header>
+
+  <div class="account-content">
+    <div class="profile-summary">
+      <div class="avatar">{{ user()?.name?.charAt(0) ?? '?' }}</div>
+      <div class="summary-text">
+        <h2>{{ user()?.name }}</h2>
+        <span class="role-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          {{ roleLabel(user()?.role ?? 'owner') }}
+        </span>
+      </div>
+      <div class="profile-art" aria-hidden="true">
+        <app-icon-3d name="profile-scene" />
+      </div>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
+      <label>
+        Full name
+        <input type="text" formControlName="name" placeholder="Your name" autocomplete="name" />
+      </label>
+
+      <label>
+        Phone
+        <input type="tel" formControlName="phone" placeholder="e.g. +220 123 4567" autocomplete="tel" />
+      </label>
+
+      <label>
+        Email
+        <input type="email" formControlName="email" readonly />
+        <span class="field-hint">Email cannot be changed here. Contact support if you need to update it.</span>
+      </label>
+
+      @if (saved()) {
+        <p class="form-success" role="status">Your profile has been updated.</p>
+      }
+
+      @if (error()) {
+        <p class="form-error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" [disabled]="form.invalid || saving()">
+          {{ saving() ? 'Saving…' : 'Save changes' }}
+        </button>
+      </div>
+    </form>
+
+    <section class="security-card">
+      <h3>Security</h3>
+      <p>Send a password reset link to <strong>{{ user()?.email }}</strong>.</p>
+      @if (passwordResetSent()) {
+        <p class="form-success" role="status">Reset link sent. Check your inbox.</p>
+      }
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="sendPasswordReset()"
+        [disabled]="resettingPassword()"
+      >
+        {{ resettingPassword() ? 'Sending…' : 'Send password reset email' }}
+      </button>
+    </section>
+  </div>
+</div>

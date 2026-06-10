@@ -1,0 +1,47 @@
+.category-badge {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #15803d;
+  line-height: 1.2;
+}
+
+.thumb-water {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.thumb-electricity {
+  background: #fef9c3;
+  color: #ca8a04;
+}
+
+.thumb-repairs {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.thumb-cleaning,
+.thumb-security,
+.thumb-other {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.detail-green {
+  background: #f0fff4;
+  color: #38a169;
+}
+
+.detail-blue {
+  background: #ebf8ff;
+  color: #3182ce;
+}
+
+.detail-orange {
+  background: #fffaf0;
+  color: #dd6b20;
+}

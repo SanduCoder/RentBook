@@ -1,0 +1,148 @@
+<div class="more-page">
+  <a routerLink="/account" class="profile-card" aria-label="View and edit your account">
+    <div class="avatar">{{ user()?.name?.charAt(0) ?? '?' }}</div>
+    <div class="profile-info">
+      <h3>{{ user()?.name }}</h3>
+      <p>{{ user()?.email }}</p>
+      <span class="role-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+        {{ roleLabel(user()?.role ?? 'owner') }}
+      </span>
+    </div>
+    <svg class="profile-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+    <div class="profile-art" aria-hidden="true">
+      <app-icon-3d name="profile-scene" />
+    </div>
+  </a>
+
+  @if (canManageTenants(user()?.role)) {
+    <section class="invite-section">
+      <div class="invite-header">
+        <h2>Your owner invite code</h2>
+        <button type="button" class="new-code-btn" (click)="regenerateOwnerCode()" [disabled]="regenerating() || loadingCode()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          {{ regenerating() ? 'Refreshing…' : 'New code' }}
+        </button>
+      </div>
+      @if (loadingCode()) {
+        <p class="invite-loading">Loading code…</p>
+      } @else {
+        @if (codeError()) {
+          <p class="invite-error">{{ codeError() }}</p>
+        }
+        <app-invite-code-display
+          [code]="ownerCode()"
+          hint="Share this with tenants to connect them to you. Assign their property and unit from the Tenants page."
+        />
+      }
+    </section>
+  } @else if (user()?.role === 'tenant' && user()?.linkedOwnerId && !user()?.tenantRecordId) {
+    <section class="invite-section tenant-join">
+      <h2>Finish linking your property</h2>
+      <p>You're connected to your landlord. Enter their property code and pick your unit to complete setup.</p>
+      <a routerLink="/join" class="join-link">Enter property code</a>
+    </section>
+  } @else if (user()?.role === 'tenant' && !user()?.linkedOwnerId && !user()?.tenantRecordId) {
+    <section class="invite-section tenant-join">
+      <h2>Link your tenancy</h2>
+      <p>Have a code from your landlord? Enter it to connect your account.</p>
+      <a routerLink="/join" class="join-link">Enter invite code</a>
+    </section>
+  }
+
+  <ul class="menu-list">
+    @if (canManageTenants(user()?.role)) {
+      <li>
+        <a routerLink="/tenants" class="menu-item">
+          <span class="menu-icon" aria-hidden="true">
+            <app-icon-3d name="tenants" />
+          </span>
+          <span class="menu-label">Tenants</span>
+          <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </a>
+      </li>
+    }
+    @if (canManageTenants(user()?.role)) {
+      <li>
+        <a routerLink="/expenses" class="menu-item">
+          <span class="menu-icon" aria-hidden="true">
+            <app-icon-3d name="expenses" />
+          </span>
+          <span class="menu-label">Expenses</span>
+          <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/shared-bills" class="menu-item">
+          <span class="menu-icon" aria-hidden="true">
+            <app-icon-3d name="bills" />
+          </span>
+          <span class="menu-label">Shared Bills</span>
+          <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </a>
+      </li>
+      <li>
+        <a routerLink="/reports" class="menu-item">
+          <span class="menu-icon" aria-hidden="true">
+            <app-icon-3d name="reports" />
+          </span>
+          <span class="menu-label">Reports</span>
+          <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </a>
+      </li>
+    }
+    <li class="menu-item menu-item-disabled">
+      <span class="menu-icon" aria-hidden="true">
+        <app-icon-3d name="notifications" />
+      </span>
+      <span class="menu-label">Notifications</span>
+      <span class="coming">Soon</span>
+      <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </li>
+    <li class="menu-item menu-item-disabled">
+      <span class="menu-icon" aria-hidden="true">
+        <app-icon-3d name="caretakers" />
+      </span>
+      <span class="menu-label">Caretakers</span>
+      <span class="coming">Phase 3</span>
+      <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </li>
+    <li class="menu-item menu-item-disabled">
+      <span class="menu-icon" aria-hidden="true">
+        <app-icon-3d name="language" />
+      </span>
+      <span class="menu-label">Language</span>
+      <span class="coming">Soon</span>
+      <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </li>
+  </ul>
+
+  <button type="button" class="btn-sign-out" (click)="logout()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+    </svg>
+    Sign Out
+  </button>
+
+  <p class="version">RentBook v1.1 — Phase 2</p>
+</div>

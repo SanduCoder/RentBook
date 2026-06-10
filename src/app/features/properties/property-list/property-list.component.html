@@ -1,0 +1,194 @@
+<div class="properties-page">
+  <header class="page-header-bar">
+    <h1>My Properties</h1>
+  </header>
+
+  @if (properties$ | async; as properties) {
+    @if (properties.length === 0) {
+      <div class="content">
+        <app-empty-state
+          icon="🏢"
+          title="No properties yet"
+          message="Add your first compound, apartment, or building to start managing rent."
+        >
+          <a routerLink="/properties/new" class="btn-primary">Add Property</a>
+        </app-empty-state>
+      </div>
+    } @else {
+      @if (portfolioSummary(properties); as summary) {
+        <div class="stat-cards">
+          <div class="stat-card stat-properties">
+            <span class="stat-icon" aria-hidden="true">
+              <app-icon-3d name="properties" />
+            </span>
+            <span class="stat-count">{{ summary.propertyCount }}</span>
+            <span class="stat-label">Properties</span>
+          </div>
+
+          <div class="stat-card stat-units">
+            <span class="stat-icon" aria-hidden="true">
+              <app-icon-3d name="reports" />
+            </span>
+            <span class="stat-count">{{ summary.totalUnits }}</span>
+            <span class="stat-label">Total Units</span>
+          </div>
+
+          <div class="stat-card stat-occupied">
+            <span class="stat-icon" aria-hidden="true">
+              <app-icon-3d name="tenants" />
+            </span>
+            <span class="stat-count">{{ summary.occupiedUnits }}</span>
+            <span class="stat-label">Occupied</span>
+          </div>
+
+          <div class="stat-card stat-vacant">
+            <span class="stat-icon" aria-hidden="true">
+              <app-icon-3d name="home" />
+            </span>
+            <span class="stat-count">{{ summary.totalUnits - summary.occupiedUnits }}</span>
+            <span class="stat-label">Vacant</span>
+          </div>
+        </div>
+      }
+
+      <div class="content">
+        <ul class="property-list">
+          @for (property of properties; track property.id) {
+                <li>
+                  <article class="property-card">
+                    <div class="card-header">
+                      <div class="property-thumb" [class]="thumbClass(property)">
+                        @if (property.imageUrl) {
+                          <img [src]="property.imageUrl" [alt]="property.name" />
+                        } @else {
+                          <span class="thumb-icon">{{ thumbnailEmoji(property.type) }}</span>
+                        }
+                      </div>
+
+                      <div class="card-head-text">
+                        <h3>{{ property.name }}</h3>
+                        <p class="meta">{{ typeLabel(property.type) }} · {{ unitLabel(property) }}</p>
+                        <p class="location">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 21s7-4.5 7-10a7 7 0 10-14 0c0 5.5 7 10 7 10z" />
+                            <circle cx="12" cy="11" r="2.5" />
+                          </svg>
+                          {{ locationLabel(property) }}
+                        </p>
+                      </div>
+
+                      <div class="card-head-actions">
+                        <span class="occupancy-badge" [class]="occupancyBadgeClass(property)">
+                          {{ occupancyRate(property) }}%
+                        </span>
+                        <div class="menu-wrap">
+                          <button
+                            type="button"
+                            class="menu-btn"
+                            aria-label="Property options"
+                            (click)="toggleMenu(property.id, $event)"
+                          >
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="12" cy="5" r="1.5" />
+                              <circle cx="12" cy="12" r="1.5" />
+                              <circle cx="12" cy="19" r="1.5" />
+                            </svg>
+                          </button>
+                          @if (openMenuId() === property.id) {
+                            <div class="card-menu" (click)="$event.stopPropagation()">
+                              <button type="button" (click)="editProperty(property.id, $event)">
+                                Edit property
+                              </button>
+                              <button type="button" class="danger" (click)="deleteProperty(property, $event)">
+                                Delete property
+                              </button>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="details-grid">
+                      <div class="detail-item">
+                        <span class="detail-icon detail-icon-units" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="4" width="16" height="16" rx="2" />
+                            <path d="M9 22V12h6v10" />
+                          </svg>
+                        </span>
+                        <div class="detail-text">
+                          <span class="detail-label">Total Units</span>
+                          <span class="detail-value">{{ property.totalCount }}</span>
+                        </div>
+                      </div>
+
+                      <div class="detail-item">
+                        <span class="detail-icon detail-icon-occupied" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
+                        </span>
+                        <div class="detail-text">
+                          <span class="detail-label">Occupied</span>
+                          <span class="detail-value occupied-text">{{ property.occupiedCount }}</span>
+                        </div>
+                      </div>
+
+                      <div class="detail-item">
+                        <span class="detail-icon detail-icon-vacant" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                            <path d="M9 22V12h6v10" />
+                          </svg>
+                        </span>
+                        <div class="detail-text">
+                          <span class="detail-label">Vacant</span>
+                          <span class="detail-value vacant-text">{{ property.vacantCount }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="card-footer">
+                      <div class="summary-preview">
+                        <span class="summary-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                          </svg>
+                        </span>
+                        <div class="summary-text">
+                          @if (property.vacantCount > 0) {
+                            <span class="summary-primary">{{ property.vacantCount }} vacant {{ unitWord(property.type, property.vacantCount).toLowerCase() }}</span>
+                            <span class="summary-secondary">Ready to assign a tenant</span>
+                          } @else if (property.totalCount === 0) {
+                            <span class="summary-primary">No units yet</span>
+                            <span class="summary-secondary">Add units to start tracking rent</span>
+                          } @else {
+                            <span class="summary-primary">Fully occupied</span>
+                            <span class="summary-secondary">All units have tenants</span>
+                          }
+                        </div>
+                      </div>
+
+                      <a [routerLink]="['/properties', property.id]" class="view-btn">View Property</a>
+                    </div>
+                  </article>
+                </li>
+              }
+        </ul>
+
+        <div class="footer-cta">
+          <div class="cta-art" aria-hidden="true">🏢</div>
+          <p>Keep your properties organized. Add units, tenants, and track rent in one place.</p>
+          <a routerLink="/properties/new" class="add-property-btn">+ Add Property</a>
+        </div>
+      </div>
+    }
+  } @else {
+    <div class="content loading">
+      <div class="skeleton-stat-row"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+  }
+</div>

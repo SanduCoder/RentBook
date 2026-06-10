@@ -1,0 +1,506 @@
+@if (property$ | async; as property) {
+  <div class="detail-page">
+    <header class="hero">
+      <div class="hero-top">
+        <a routerLink="/properties" class="icon-btn" aria-label="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 6l-6 6 6 6" />
+          </svg>
+        </a>
+        <h1>{{ property.name }}</h1>
+        <div class="hero-menu-wrap">
+          <button type="button" class="icon-btn" aria-label="Property options" (click)="togglePropertyMenu($event)">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5" r="1.5" />
+              <circle cx="12" cy="12" r="1.5" />
+              <circle cx="12" cy="19" r="1.5" />
+            </svg>
+          </button>
+          @if (showPropertyMenu()) {
+            <div class="hero-menu" (click)="$event.stopPropagation()">
+              <a [routerLink]="['/properties', property.id, 'edit']">Edit property</a>
+              <button type="button" class="danger" (click)="deleteProperty(property)">Delete property</button>
+            </div>
+          }
+        </div>
+      </div>
+      <p class="hero-address">{{ locationLabel(property.address) }}</p>
+    </header>
+
+    <nav class="tabs-bar">
+      @for (tab of tabs; track tab.id) {
+        <button
+          type="button"
+          class="tab"
+          [class.active]="activeTab() === tab.id"
+          (click)="setTab(tab.id)"
+        >
+          {{ tab.label }}
+        </button>
+      }
+    </nav>
+
+    <div class="content">
+      @if (activeTab() === 'overview') {
+        <section class="section">
+          <div class="section-header">
+            <h2>Overview</h2>
+            <span class="period-badge">This Month</span>
+          </div>
+
+          @if (property.imageUrl) {
+            <div class="reference-photo">
+              <img [src]="property.imageUrl" alt="Property condition reference" />
+              <p>Reference photo — property condition on record</p>
+            </div>
+          }
+
+          <div class="invite-card">
+            <div class="invite-card-header">
+              <h3>Property invite code</h3>
+              <button
+                type="button"
+                class="text-btn"
+                (click)="regeneratePropertyInviteCode(property)"
+                [disabled]="regeneratingPropertyCode()"
+              >
+                {{ regeneratingPropertyCode() ? 'Refreshing…' : 'New code' }}
+              </button>
+            </div>
+            <app-invite-code-display
+              [code]="propertyInviteCode()"
+              hint="Give this code to new tenants for this property. They pick their unit when joining."
+            />
+          </div>
+
+          @if (overview$ | async; as stats) {
+            <div class="stats-grid">
+              <div class="metric-card metric-collected">
+                <span class="metric-label">Collected</span>
+                <span class="metric-value">{{ stats.collectedThisMonth | currencyFormat: stats.currency }}</span>
+              </div>
+              <div class="metric-card metric-outstanding">
+                <span class="metric-label">Outstanding</span>
+                <span class="metric-value">{{ stats.outstandingRent | currencyFormat: stats.currency }}</span>
+              </div>
+              <div class="metric-card metric-occupancy">
+                <span class="metric-label">Occupancy</span>
+                <span class="metric-value">
+                  {{ stats.totalUnits ? stats.occupiedUnits + ' / ' + stats.totalUnits : '0 / 0' }}
+                </span>
+                <span class="metric-sub">{{ stats.occupancyRate }}%</span>
+              </div>
+              <div class="metric-card metric-vacant">
+                <span class="metric-label">Vacant Rooms</span>
+                <span class="metric-value">{{ stats.vacantUnits }}</span>
+              </div>
+              <a routerLink="/requests" class="metric-card metric-maintenance metric-wide">
+                <span class="metric-label">Maintenance</span>
+                <span class="metric-value">{{ stats.openMaintenance }} Open</span>
+              </a>
+            </div>
+          } @else {
+            <div class="stats-grid loading-grid">
+              <div class="metric-card skeleton"></div>
+              <div class="metric-card skeleton"></div>
+              <div class="metric-card skeleton"></div>
+              <div class="metric-card skeleton"></div>
+            </div>
+          }
+
+          <div class="section-header activity-header">
+            <h2>Recent Activity</h2>
+            <a routerLink="/payments" class="view-all">View all</a>
+          </div>
+
+          @if (activity$ | async; as activities) {
+            @if (activities.length === 0) {
+              <p class="empty-text">No payments recorded for this property yet.</p>
+            } @else {
+              <ul class="activity-list">
+                @for (item of activities; track item.id) {
+                  <li>
+                    <a [routerLink]="activityLink(item)" class="activity-link">
+                      <span class="activity-icon">👤</span>
+                      <div class="activity-content">
+                        <p>{{ item.message }}</p>
+                        <time>{{ item.timestamp | date: 'MMM d, yyyy · h:mm a' }}</time>
+                      </div>
+                      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 6l6 6-6 6" />
+                      </svg>
+                    </a>
+                  </li>
+                }
+              </ul>
+            }
+          }
+
+          <div class="quick-actions">
+            <a routerLink="/payments/new" [queryParams]="{ propertyId: property.id }" class="action-chip">
+              Record Payment
+            </a>
+            <button type="button" class="action-chip" (click)="setTab('units')">Manage Units</button>
+          </div>
+        </section>
+      }
+
+      @if (activeTab() === 'units') {
+        <section class="section">
+          <div class="section-header">
+            <h2>Units</h2>
+            <button type="button" class="btn-secondary btn-sm" (click)="toggleUnitForm()">
+              {{ showUnitForm() ? 'Cancel' : '+ Add Unit' }}
+            </button>
+          </div>
+
+          @if (showUnitForm()) {
+            <form [formGroup]="unitForm" (ngSubmit)="saveUnit(property.id)" class="inline-form">
+              <label>
+                Unit name
+                <input type="text" formControlName="name" placeholder="e.g. Room 1, Apartment A" />
+                <span class="hint">What you call this space — room number or flat name</span>
+              </label>
+
+              <label>
+                Unit type
+                <select formControlName="type">
+                  @for (unitType of unitTypes; track unitType.value) {
+                    <option [value]="unitType.value">{{ unitType.label }}</option>
+                  }
+                </select>
+              </label>
+
+              <div class="field-row">
+                <label>
+                  Bedrooms / rooms
+                  <input type="number" formControlName="rooms" min="1" placeholder="1" />
+                  <span class="hint">How many sleeping rooms</span>
+                </label>
+                <label>
+                  Bathrooms
+                  <input type="number" formControlName="bathrooms" min="1" placeholder="1" />
+                  <span class="hint">Toilets or bath spaces</span>
+                </label>
+              </div>
+
+              <label>
+                Monthly rent ({{ property.currency === 'GMD' ? 'Dalasi' : property.currency }})
+                <input type="number" formControlName="monthlyRent" min="1" placeholder="e.g. 5000" />
+                <span class="hint">Amount the tenant pays each month</span>
+              </label>
+
+              <div class="form-actions">
+                <button type="button" class="btn-secondary btn-sm" (click)="cancelUnitForm()">Cancel</button>
+                <button type="submit" class="btn-primary btn-sm" [disabled]="unitForm.invalid || savingUnit()">
+                  {{ savingUnit() ? 'Saving…' : (editingUnitId() ? 'Save Changes' : 'Add Unit') }}
+                </button>
+              </div>
+            </form>
+          }
+
+          @if (units$ | async; as units) {
+            @if (units.length === 0) {
+              <p class="empty-text">No units yet. Add your first room or apartment.</p>
+            } @else {
+              <ul class="unit-list">
+                @for (unit of units; track unit.id) {
+                  <li class="unit-card">
+                    <div class="card-main">
+                      <h4>{{ unit.name }}</h4>
+                      <p class="unit-layout">{{ formatUnitLayout(unit.rooms, unit.bathrooms) }}</p>
+                      <p class="unit-rent">{{ unit.monthlyRent | currencyFormat: property.currency }}/month</p>
+                    </div>
+                    <span
+                      class="status-badge"
+                      [class.occupied]="unit.status === 'occupied'"
+                      [class.vacant]="unit.status === 'vacant'"
+                    >
+                      {{ unit.status }}
+                    </span>
+                    <div class="row-actions">
+                      <button type="button" class="icon-action" aria-label="Edit unit" (click)="startEditUnit(unit)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+                        </svg>
+                      </button>
+                      <button type="button" class="icon-action danger" aria-label="Delete unit" (click)="deleteUnit(unit, property.id)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                        </svg>
+                      </button>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          }
+        </section>
+      }
+
+      @if (activeTab() === 'tenants') {
+        <section class="section">
+          <div class="section-header">
+            <h2>Tenants</h2>
+            <a [routerLink]="['/tenants/new']" [queryParams]="{ propertyId: property.id }" class="btn-secondary btn-sm">
+              + Add Tenant
+            </a>
+          </div>
+
+          @if (editingTenantId()) {
+            @if (units$ | async; as units) {
+              @if (tenants$ | async; as tenants) {
+                <form [formGroup]="tenantForm" (ngSubmit)="saveTenant()" class="inline-form">
+                  <p class="form-title">Edit tenant</p>
+                  <label>
+                    Unit
+                    <select formControlName="unitId">
+                      <option value="" disabled>Select unit</option>
+                      @for (unit of tenantUnitOptions(units, editingTenantFrom(tenants)); track unit.id) {
+                        <option [value]="unit.id">{{ unit.name }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label>
+                    Full name
+                    <input type="text" formControlName="name" />
+                  </label>
+                  <label>
+                    Phone
+                    <input type="tel" formControlName="phone" />
+                  </label>
+                  <div class="field-row">
+                    <label>
+                      Monthly rent
+                      <input type="number" formControlName="monthlyRent" min="0" />
+                    </label>
+                    <label>
+                      Due day
+                      <input type="number" formControlName="dueDay" min="1" max="28" />
+                    </label>
+                  </div>
+                  <label>
+                    Move-in date
+                    <input type="date" formControlName="moveInDate" />
+                  </label>
+                  <div class="form-actions">
+                    <button type="button" class="btn-secondary btn-sm" (click)="cancelTenantForm()">Cancel</button>
+                    <button type="submit" class="btn-primary btn-sm" [disabled]="tenantForm.invalid || savingTenant()">
+                      {{ savingTenant() ? 'Saving…' : 'Save Changes' }}
+                    </button>
+                  </div>
+                </form>
+              }
+            }
+          }
+
+          @if (tenantItems$ | async; as tenantItems) {
+            @if (tenantItems.length === 0) {
+              <p class="empty-text">No tenants assigned yet.</p>
+            } @else {
+              <ul class="tenant-list">
+                @for (item of tenantItems; track item.tenant.id) {
+                  <li>
+                    <div class="tenant-card">
+                      <a [routerLink]="['/tenants', item.tenant.id]" class="tenant-main">
+                        <div class="tenant-avatar">{{ item.tenant.name.charAt(0) }}</div>
+                        <div class="tenant-info">
+                          <div class="tenant-top">
+                            <h4>{{ item.tenant.name }}</h4>
+                            <span class="status-badge rent-status" [class]="item.rentStatus.status">
+                              {{ item.rentStatus.statusLabel }}
+                            </span>
+                          </div>
+                          <p class="unit-line">{{ item.unitName }}</p>
+                          <div class="tenant-bottom">
+                            <p class="rent-line">
+                              {{ item.tenant.monthlyRent | currencyFormat: property.currency }} / month
+                            </p>
+                            <p class="date-line" [class]="item.rentStatus.status">
+                              {{ item.rentStatus.dateLabel }}:
+                              {{ item.rentStatus.dateValue | date: 'MMM d, yyyy' }}
+                            </p>
+                          </div>
+                        </div>
+                      </a>
+                      <div class="row-actions">
+                        <button type="button" class="icon-action" aria-label="Edit tenant" (click)="startEditTenant(item.tenant)">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+                          </svg>
+                        </button>
+                        <button type="button" class="icon-action danger" aria-label="Delete tenant" (click)="deleteTenant(item.tenant)">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          }
+        </section>
+      }
+
+      @if (activeTab() === 'expenses') {
+        <section class="section">
+          <div class="section-header">
+            <h2>Expenses</h2>
+            <a [routerLink]="['/expenses/new']" [queryParams]="{ propertyId: property.id }" class="btn-secondary btn-sm">
+              + Add Expense
+            </a>
+          </div>
+
+          @if (editingExpenseId()) {
+            <form [formGroup]="expenseForm" (ngSubmit)="saveExpense()" class="inline-form">
+              <p class="form-title">Edit expense</p>
+              <label>
+                Category
+                <select formControlName="category">
+                  @for (cat of expenseCategories; track cat.value) {
+                    <option [value]="cat.value">{{ cat.label }}</option>
+                  }
+                </select>
+              </label>
+              <label>
+                Amount
+                <input type="number" formControlName="amount" min="1" />
+              </label>
+              <label>
+                Date
+                <input type="date" formControlName="date" />
+              </label>
+              <label>
+                Description
+                <textarea formControlName="description" rows="2"></textarea>
+              </label>
+              <div class="form-actions">
+                <button type="button" class="btn-secondary btn-sm" (click)="cancelExpenseForm()">Cancel</button>
+                <button type="submit" class="btn-primary btn-sm" [disabled]="expenseForm.invalid || savingExpense()">
+                  {{ savingExpense() ? 'Saving…' : 'Save Changes' }}
+                </button>
+              </div>
+            </form>
+          }
+
+          @if (expenses$ | async; as expenses) {
+            @if (expenses.length === 0) {
+              <p class="empty-text">No expenses recorded for this property.</p>
+            } @else {
+              <ul class="mini-list">
+                @for (expense of expenses; track expense.id) {
+                  <li [class.editing]="editingExpenseId() === expense.id">
+                    <div>
+                      <strong>{{ expenseLabels[expense.category] }}</strong>
+                      <span>{{ expense.description || 'No description' }}</span>
+                    </div>
+                    <div class="right">
+                      <strong>{{ expense.amount | currencyFormat: property.currency }}</strong>
+                      <span>{{ expense.date | date: 'MMM d' }}</span>
+                    </div>
+                    <div class="row-actions">
+                      <button type="button" class="icon-action" aria-label="Edit expense" (click)="startEditExpense(expense)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+                        </svg>
+                      </button>
+                      <button type="button" class="icon-action danger" aria-label="Delete expense" (click)="deleteExpense(expense)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                        </svg>
+                      </button>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          }
+        </section>
+      }
+
+      @if (activeTab() === 'bills') {
+        <section class="section">
+          <div class="section-header">
+            <h2>Shared Bills</h2>
+            <a [routerLink]="['/shared-bills/new']" [queryParams]="{ propertyId: property.id }" class="btn-secondary btn-sm">
+              + Add Bill
+            </a>
+          </div>
+
+          @if (editingBillId()) {
+            <form [formGroup]="billForm" (ngSubmit)="saveBill()" class="inline-form">
+              <p class="form-title">Edit shared bill</p>
+              <label>
+                Bill type
+                <select formControlName="type">
+                  @for (billType of billTypes; track billType.value) {
+                    <option [value]="billType.value">{{ billType.label }}</option>
+                  }
+                </select>
+              </label>
+              <div class="field-row">
+                <label>
+                  Total amount
+                  <input type="number" formControlName="amount" min="1" />
+                </label>
+                <label>
+                  Households
+                  <input type="number" formControlName="households" min="1" />
+                </label>
+              </div>
+              <label>
+                Date
+                <input type="date" formControlName="date" />
+              </label>
+              <label>
+                Description
+                <textarea formControlName="description" rows="2"></textarea>
+              </label>
+              <div class="form-actions">
+                <button type="button" class="btn-secondary btn-sm" (click)="cancelBillForm()">Cancel</button>
+                <button type="submit" class="btn-primary btn-sm" [disabled]="billForm.invalid || savingBill()">
+                  {{ savingBill() ? 'Saving…' : 'Save Changes' }}
+                </button>
+              </div>
+            </form>
+          }
+
+          @if (sharedBills$ | async; as bills) {
+            @if (bills.length === 0) {
+              <p class="empty-text">No shared bills yet. Split water, electricity, or community costs.</p>
+            } @else {
+              <ul class="mini-list">
+                @for (bill of bills; track bill.id) {
+                  <li [class.editing]="editingBillId() === bill.id">
+                    <div>
+                      <strong>{{ billLabels[bill.type] }}</strong>
+                      <span>{{ bill.households }} households</span>
+                    </div>
+                    <div class="right">
+                      <strong>{{ bill.amount | currencyFormat: property.currency }}</strong>
+                      <span class="split">{{ perHousehold(bill.amount, bill.households) | currencyFormat: property.currency }}/each</span>
+                    </div>
+                    <div class="row-actions">
+                      <button type="button" class="icon-action" aria-label="Edit bill" (click)="startEditBill(bill)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+                        </svg>
+                      </button>
+                      <button type="button" class="icon-action danger" aria-label="Delete bill" (click)="deleteBill(bill)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                        </svg>
+                      </button>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          }
+        </section>
+      }
+    </div>
+  </div>
+}

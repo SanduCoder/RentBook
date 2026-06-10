@@ -1,0 +1,121 @@
+<div class="list-page">
+  <header class="page-header-bar">
+    <a routerLink="/dashboard" class="icon-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </a>
+    <h1>Payments</h1>
+    <a routerLink="/payments/new" class="header-action" aria-label="Record payment">+</a>
+  </header>
+
+  @if (payments$ | async; as data) {
+    @if (data.items.length > 0) {
+      <div class="stat-cards">
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">
+            <app-icon-3d name="collected" />
+          </span>
+          <span class="stat-count">{{ totalAmount(data) | currencyFormat: data.currency }}</span>
+          <span class="stat-label">Total</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">
+            <app-icon-3d name="occupancy" />
+          </span>
+          <span class="stat-count">{{ countByStatus(data.items, 'paid') }}</span>
+          <span class="stat-label">Paid</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">
+            <app-icon-3d name="outstanding" />
+          </span>
+          <span class="stat-count">{{ countByStatus(data.items, 'partial') }}</span>
+          <span class="stat-label">Partial</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon" aria-hidden="true">
+            <app-icon-3d name="pending" />
+          </span>
+          <span class="stat-count">{{ countByStatus(data.items, 'late') }}</span>
+          <span class="stat-label">Late</span>
+        </div>
+      </div>
+    }
+
+    <div class="list-content">
+      @if (data.items.length === 0) {
+        <app-empty-state
+          icon="💰"
+          title="No payments yet"
+          message="Record rent payments from Wave, AfriMoney, cash, or bank transfer."
+        >
+          <a routerLink="/payments/new" class="btn-primary">Record Payment</a>
+        </app-empty-state>
+      } @else {
+        <ul class="item-list">
+          @for (payment of data.items; track payment.id) {
+            <li>
+              <article class="record-card">
+                <div class="card-header">
+                  <div class="card-thumb thumb-method">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="2" y="5" width="20" height="14" rx="2" />
+                      <path d="M2 10h20" />
+                    </svg>
+                  </div>
+                  <div class="card-head-text">
+                    <h3>{{ payment.amount | currencyFormat: data.currency }}</h3>
+                    <p class="card-meta">{{ methodLabels[payment.method] }}</p>
+                  </div>
+                  <span class="status-badge" [class]="payment.status">{{ payment.status }}</span>
+                </div>
+                <div class="details-grid">
+                  <div class="detail-item">
+                    <span class="detail-icon detail-green" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Amount</span>
+                      <span class="detail-value">{{ payment.amount | currencyFormat: data.currency }}</span>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-icon detail-blue" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Date</span>
+                      <span class="detail-value">{{ payment.date | date: 'MMM d, yyyy' }}</span>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-icon detail-purple" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2" />
+                        <path d="M2 10h20" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Method</span>
+                      <span class="detail-value">{{ methodLabels[payment.method] }}</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </li>
+          }
+        </ul>
+
+        <div class="footer-cta">
+          <a routerLink="/payments/new" class="cta-btn">+ Record Payment</a>
+        </div>
+      }
+    </div>
+  }
+</div>

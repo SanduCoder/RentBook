@@ -1,0 +1,68 @@
+<div class="form-page">
+<a href="#" class="back-link" (click)="cancel($event)">← Cancel</a>
+
+<app-page-header
+  [title]="isEdit ? 'Edit Property' : 'Add Property'"
+  [subtitle]="isEdit ? 'Update property details' : 'Create a new property to manage'"
+/>
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
+  <label>
+    Property Name
+    <input type="text" formControlName="name" placeholder="e.g. Sunset Compound" />
+  </label>
+
+  <label>
+    Property Type
+    <select formControlName="type">
+      @for (type of propertyTypes; track type.value) {
+        <option [value]="type.value">{{ type.label }}</option>
+      }
+    </select>
+  </label>
+
+  <label>
+    Address
+    <input type="text" formControlName="address" placeholder="Street, area, city" />
+  </label>
+
+  <label>
+    Country
+    <input type="text" formControlName="country" />
+  </label>
+
+  <label>
+    Currency
+    <select formControlName="currency">
+      <option value="GMD">GMD (Dalasi)</option>
+      <option value="USD">USD</option>
+    </select>
+  </label>
+
+  <div class="image-field">
+    <span class="field-label">Reference Photo <span class="optional">(optional)</span></span>
+    <span class="hint">Photo of the property condition — useful if a tenant causes damage</span>
+
+    @if (hasImage()) {
+      <div class="image-preview">
+        <img [src]="imagePreview() || existingImageUrl()" alt="Property reference photo" />
+        <button type="button" class="btn-secondary btn-sm" (click)="clearImage()">Remove photo</button>
+      </div>
+    } @else {
+      <label class="upload-box">
+        <input type="file" accept="image/*" capture="environment" (change)="onFileSelected($event)" />
+        <span class="upload-icon">📷</span>
+        <span class="upload-text">Tap to add a photo</span>
+        <span class="upload-sub">JPG or PNG, max 5 MB</span>
+      </label>
+    }
+  </div>
+
+  <div class="form-actions">
+    <button type="button" class="btn-secondary" (click)="cancel()">Cancel</button>
+    <button type="submit" class="btn-primary" [disabled]="form.invalid || loading()">
+      {{ loading() ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create Property') }}
+    </button>
+  </div>
+</form>
+</div>

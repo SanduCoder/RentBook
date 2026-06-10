@@ -1,0 +1,61 @@
+.icon-spacer {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.stat-count.negative {
+  color: #e53e3e;
+}
+
+.summary-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.summary-card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1.125rem 1.25rem;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  border: 1px solid #edf2f7;
+}
+
+.summary-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #718096;
+  margin-bottom: 0.375rem;
+}
+
+.summary-card strong {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1a202c;
+  margin-bottom: 0.375rem;
+}
+
+.summary-card p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #a0aec0;
+  line-height: 1.45;
+}
+
+.income-card strong {
+  color: #15803d;
+}
+
+.expense-card strong {
+  color: #ea580c;
+}
+
+.profit-card strong {
+  color: #7c3aed;
+}
+
+.profit-card.negative strong {
+  color: #e53e3e;
+}
