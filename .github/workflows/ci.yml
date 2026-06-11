@@ -8,15 +8,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: rentbook
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: rentbook/package-lock.json
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run build
