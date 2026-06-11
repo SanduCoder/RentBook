@@ -6,11 +6,15 @@ import { AuthService } from '../../../core/services/auth.service';
 const REMEMBER_EMAIL_KEY = 'rentbook_remember_email';
 
 function getAuthErrorMessage(err: unknown): string {
-  if (err instanceof Error && err.message.includes('verify your email')) {
-    return err.message;
-  }
-  if (err instanceof Error && err.message.includes('could not load your profile')) {
-    return err.message;
+  if (err instanceof Error) {
+    if (
+      err.message.includes('verify your email') ||
+      err.message.includes('could not load your profile') ||
+      err.message.includes('home-screen') ||
+      err.message.includes('timed out')
+    ) {
+      return err.message;
+    }
   }
 
   const code = (err as { code?: string })?.code;
@@ -23,7 +27,9 @@ function getAuthErrorMessage(err: unknown): string {
     case 'auth/too-many-requests':
       return 'Too many attempts. Please wait a moment and try again.';
     case 'auth/network-request-failed':
-      return 'Network error. Check your connection and try again.';
+      return err instanceof Error && err.message.includes('home-screen')
+        ? err.message
+        : 'Network error. Check your connection and try again.';
     case 'auth/user-disabled':
       return 'This account has been disabled.';
     default:

@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { AppCheck } from '@angular/fire/app-check';
 import {
   Auth,
   User,
@@ -10,6 +11,8 @@ import {
   signOut,
   updateProfile as updateFirebaseProfile,
 } from '@angular/fire/auth';
+import { ensureAppCheckReady } from '../utils/app-check.utils';
+import { isIosStandalonePwa } from '../utils/platform.utils';
 import {
   Firestore,
   doc,
@@ -22,9 +25,14 @@ import { AppUser, UserRole } from '../models/user.model';
 import { InviteCodeService } from './invite-code.service';
 import { canManageTenants } from '../utils/role.utils';
 
+const AUTH_LISTENER_TIMEOUT_MS = 10000;
+const LOGIN_TIMEOUT_MS = 20000;
+const PROFILE_RETRY_DELAY_MS = 600;
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private auth = inject(Auth);
+  private appCheck = inject(AppCheck, { optional: true });
   private firestore = inject(Firestore);
   private inviteCodeService = inject(InviteCodeService);
 
@@ -34,6 +42,12 @@ export class AuthService {
   readonly emailVerified = signal(false);
 
   constructor() {
+    window.setTimeout(() => {
+      if (this.loading()) {
+        this.loading.set(false);
+      }
+    }, AUTH_LISTENER_TIMEOUT_MS);
+
     onAuthStateChanged(this.auth, async (user) => {
       this.loading.set(true);
       this.firebaseUser.set(user);
@@ -136,7 +150,19 @@ export class AuthService {
   }
 
   async login(email: string, password: string): Promise<void> {
-    const credential = await signInWithEmailAndPassword(this.auth, email, password);
+    await ensureAppCheckReady(this.appCheck ?? null);
+
+    let credential;
+    try {
+      credential = await this.withTimeout(
+        signInWithEmailAndPassword(this.auth, email, password),
+        LOGIN_TIMEOUT_MS,
+        'Sign-in timed out. Check your connection and try again.'
+      );
+    } catch (err) {
+      throw this.enrichAuthError(err);
+    }
+
     this.firebaseUser.set(credential.user);
 
     try {
@@ -153,7 +179,7 @@ export class AuthService {
     }
 
     try {
-      await this.loadUserProfile(credential.user.uid);
+      await this.loadUserProfile(credential.user.uid, true);
     } catch {
       throw new Error('Signed in but could not load your profile. Check your connection and try again.');
     }
@@ -199,25 +225,79 @@ export class AuthService {
     this.emailVerified.set(false);
   }
 
-  private async loadUserProfile(uid: string): Promise<void> {
-    const snap = await getDoc(doc(this.firestore, 'users', uid));
-    if (!snap.exists()) {
-      this.currentUser.set(null);
-      return;
+  private async loadUserProfile(uid: string, retryOnFailure = false): Promise<void> {
+    try {
+      const snap = await getDoc(doc(this.firestore, 'users', uid));
+      if (!snap.exists()) {
+        this.currentUser.set(null);
+        return;
+      }
+
+      const data = snap.data();
+      this.currentUser.set({
+        id: uid,
+        name: data['name'] ?? '',
+        phone: data['phone'] ?? '',
+        email: data['email'] ?? '',
+        role: data['role'] ?? 'owner',
+        photoUrl: data['photoUrl'],
+        linkedOwnerId: data['linkedOwnerId'],
+        linkedPropertyId: data['linkedPropertyId'],
+        tenantRecordId: data['tenantRecordId'],
+        createdAt: data['createdAt']?.toDate?.() ?? new Date(),
+      });
+    } catch (err) {
+      if (retryOnFailure) {
+        await new Promise((resolve) => window.setTimeout(resolve, PROFILE_RETRY_DELAY_MS));
+        const snap = await getDoc(doc(this.firestore, 'users', uid));
+        if (!snap.exists()) {
+          this.currentUser.set(null);
+          return;
+        }
+
+        const data = snap.data();
+        this.currentUser.set({
+          id: uid,
+          name: data['name'] ?? '',
+          phone: data['phone'] ?? '',
+          email: data['email'] ?? '',
+          role: data['role'] ?? 'owner',
+          photoUrl: data['photoUrl'],
+          linkedOwnerId: data['linkedOwnerId'],
+          linkedPropertyId: data['linkedPropertyId'],
+          tenantRecordId: data['tenantRecordId'],
+          createdAt: data['createdAt']?.toDate?.() ?? new Date(),
+        });
+        return;
+      }
+
+      throw err;
+    }
+  }
+
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+      promise
+        .then((value) => {
+          window.clearTimeout(timer);
+          resolve(value);
+        })
+        .catch((err) => {
+          window.clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
+
+  private enrichAuthError(err: unknown): Error {
+    const code = (err as { code?: string })?.code;
+    if (code === 'auth/network-request-failed' && isIosStandalonePwa()) {
+      return new Error(
+        'Connection failed in the home-screen app. Close RentBook, open it once in Safari to sign in, then try the home-screen icon again.'
+      );
     }
 
-    const data = snap.data();
-    this.currentUser.set({
-      id: uid,
-      name: data['name'] ?? '',
-      phone: data['phone'] ?? '',
-      email: data['email'] ?? '',
-      role: data['role'] ?? 'owner',
-      photoUrl: data['photoUrl'],
-      linkedOwnerId: data['linkedOwnerId'],
-      linkedPropertyId: data['linkedPropertyId'],
-      tenantRecordId: data['tenantRecordId'],
-      createdAt: data['createdAt']?.toDate?.() ?? new Date(),
-    });
+    return err instanceof Error ? err : new Error('Could not sign in. Please try again.');
   }
 }

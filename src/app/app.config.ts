@@ -1,15 +1,46 @@
-import { ApplicationConfig, ErrorHandler, isDevMode, provideZoneChangeDetection } from '@angular/core';
+import { APP_INITIALIZER, ApplicationConfig, ErrorHandler, isDevMode, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideFirebaseApp, initializeApp, getApp } from '@angular/fire/app';
-import { provideAuth, getAuth } from '@angular/fire/auth';
-import { provideFirestore, getFirestore } from '@angular/fire/firestore';
+import { provideAuth } from '@angular/fire/auth';
+import { provideFirestore } from '@angular/fire/firestore';
 import { provideStorage, getStorage } from '@angular/fire/storage';
 import { provideAppCheck, initializeAppCheck, ReCaptchaV3Provider } from '@angular/fire/app-check';
+import {
+  browserLocalPersistence,
+  getAuth as getFirebaseAuth,
+  indexedDBLocalPersistence,
+  initializeAuth,
+} from 'firebase/auth';
+import { getFirestore as getFirebaseFirestore, initializeFirestore } from 'firebase/firestore';
 
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
 import { GlobalErrorHandler } from './core/services/error-notification.service';
+import { isIosStandalonePwa } from './core/utils/platform.utils';
+import { preloadRecaptcha } from './core/utils/pwa-bootstrap.utils';
+
+function createAuth() {
+  const app = getApp();
+  try {
+    return initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+    });
+  } catch {
+    return getFirebaseAuth(app);
+  }
+}
+
+function createFirestore() {
+  const app = getApp();
+  try {
+    return initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+    });
+  } catch {
+    return getFirebaseFirestore(app);
+  }
+}
 
 const appCheckProviders =
   environment.appCheckRecaptchaSiteKey && environment.production
@@ -23,18 +54,30 @@ const appCheckProviders =
       ]
     : [];
 
+const pwaBootstrapProviders =
+  environment.production && environment.appCheckRecaptchaSiteKey
+    ? [
+        {
+          provide: APP_INITIALIZER,
+          multi: true,
+          useFactory: () => () => preloadRecaptcha(environment.appCheckRecaptchaSiteKey),
+        },
+      ]
+    : [];
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     provideFirebaseApp(() => initializeApp(environment.firebase)),
-    provideAuth(() => getAuth()),
-    provideFirestore(() => getFirestore()),
+    provideAuth(() => createAuth()),
+    provideFirestore(() => createFirestore()),
     provideStorage(() => getStorage()),
     ...appCheckProviders,
+    ...pwaBootstrapProviders,
     provideServiceWorker('ngsw-worker.js', {
-      enabled: !isDevMode(),
+      enabled: !isDevMode() && !isIosStandalonePwa(),
       registrationStrategy: 'registerWhenStable:30000',
     }),
   ],

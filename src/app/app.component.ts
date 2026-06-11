@@ -16,7 +16,7 @@ export class AppComponent {
     startSplashWatchdog();
 
     effect(() => {
-      if (!this.auth.loading()) {
+      if (!this.auth.loading() || this.auth.isSessionSettled()) {
         dismissAppSplash();
       }
     });
