@@ -1,8 +1,8 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Observable, of } from 'rxjs';
+import { firstValueFrom, Observable, of } from 'rxjs';
 import { AuthService } from '../../../core/services/auth.service';
 import { Property } from '../../../core/models/property.model';
 import { PropertyService } from '../../../core/services/property.service';
@@ -18,7 +18,7 @@ import { PageHeaderComponent } from '../../../shared/components/page-header/page
   templateUrl: './tenant-form.component.html',
   styleUrl: './tenant-form.component.scss',
 })
-export class TenantFormComponent {
+export class TenantFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -28,16 +28,13 @@ export class TenantFormComponent {
   private tenantService = inject(TenantService);
 
   loading = signal(false);
+  vacantUnits = signal<Unit[]>([]);
 
   propertyId = this.route.snapshot.queryParamMap.get('propertyId') ?? '';
 
   properties$: Observable<Property[]> = this.auth.currentUser()
     ? this.propertyService.getByOwner(this.auth.currentUser()!.id)
     : of([]);
-
-  units$: Observable<Unit[]> | null = this.propertyId
-    ? this.unitService.getByProperty(this.propertyId)
-    : null;
 
   form = this.fb.nonNullable.group({
     propertyId: [this.propertyId, Validators.required],
@@ -51,9 +48,32 @@ export class TenantFormComponent {
     dueDay: [1, [Validators.required, Validators.min(1), Validators.max(28)]],
   });
 
+  ngOnInit(): void {
+    if (this.propertyId) {
+      void this.loadVacantUnits(this.propertyId);
+    }
+  }
+
   onPropertyChange(propertyId: string): void {
-    this.form.patchValue({ propertyId, unitId: '' });
-    this.units$ = this.unitService.getByProperty(propertyId);
+    this.form.patchValue({ propertyId, unitId: '', monthlyRent: 0 });
+    void this.loadVacantUnits(propertyId);
+  }
+
+  onUnitChange(unitId: string): void {
+    const unit = this.vacantUnits().find((item) => item.id === unitId);
+    if (unit) {
+      this.form.patchValue({ monthlyRent: unit.monthlyRent });
+    }
+  }
+
+  private async loadVacantUnits(propertyId: string): Promise<void> {
+    if (!propertyId) {
+      this.vacantUnits.set([]);
+      return;
+    }
+
+    const units = await firstValueFrom(this.unitService.getByProperty(propertyId));
+    this.vacantUnits.set(units.filter((unit) => unit.status === 'vacant'));
   }
 
   async onSubmit(): Promise<void> {

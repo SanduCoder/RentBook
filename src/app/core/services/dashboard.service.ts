@@ -10,7 +10,10 @@ import { UnitService } from './unit.service';
 import { PAYMENT_METHOD_LABELS } from '../models/payment.model';
 import { getMonthStart } from '../utils/firestore.utils';
 import {
+  calculateExpectedMonthlyRent,
+  calculateMonthlyDiscount,
   calculateOutstandingRent,
+  calculateToCollect,
   countPendingPaymentReports,
   sumConfirmedCollected,
   sumRentCredits,
@@ -19,6 +22,8 @@ import { isTenant, isTenancyLinked } from '../utils/role.utils';
 
 export interface DashboardStats {
   collectedThisMonth: number;
+  expectedMonthlyRent: number;
+  toCollect: number;
   outstandingRent: number;
   occupiedUnits: number;
   vacantUnits: number;
@@ -29,6 +34,10 @@ export interface DashboardStats {
   currency: string;
   collectedTrend: number;
   outstandingTrend: number;
+  monthlyDiscount: number;
+  listedRent: number;
+  quotedRent: number;
+  discountedTenants: number;
 }
 
 export interface ActivityItem {
@@ -99,6 +108,8 @@ export class DashboardService {
             const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
             const collectedThisMonth = sumRentCredits(payments, { monthStart, now });
+            const expectedMonthlyRent = calculateExpectedMonthlyRent(units, tenants);
+            const toCollect = calculateToCollect(units, payments, { tenants, now });
 
             const collectedLastMonth = sumConfirmedCollected(payments, lastMonthStart, monthStart);
 
@@ -109,11 +120,14 @@ export class DashboardService {
               payments,
               lastMonthRef
             );
+            const discount = calculateMonthlyDiscount(units, tenants);
             const pendingRequests = requests.filter((r) => r.status !== 'completed').length;
             const pendingPaymentReports = countPendingPaymentReports(payments);
 
             return {
               collectedThisMonth,
+              expectedMonthlyRent,
+              toCollect,
               outstandingRent,
               occupiedUnits: units.filter((u) => u.status === 'occupied').length,
               vacantUnits: units.filter((u) => u.status === 'vacant').length,
@@ -124,6 +138,10 @@ export class DashboardService {
               currency,
               collectedTrend: this.percentChange(collectedThisMonth, collectedLastMonth),
               outstandingTrend: this.percentChange(outstandingRent, outstandingLastMonth),
+              monthlyDiscount: discount.totalDiscount,
+              listedRent: discount.listedRent,
+              quotedRent: discount.quotedRent,
+              discountedTenants: discount.discountedTenants,
             };
           })
         );
@@ -199,6 +217,8 @@ export class DashboardService {
   private emptyStats(): DashboardStats {
     return {
       collectedThisMonth: 0,
+      expectedMonthlyRent: 0,
+      toCollect: 0,
       outstandingRent: 0,
       occupiedUnits: 0,
       vacantUnits: 0,
@@ -209,6 +229,10 @@ export class DashboardService {
       currency: 'GMD',
       collectedTrend: 0,
       outstandingTrend: 0,
+      monthlyDiscount: 0,
+      listedRent: 0,
+      quotedRent: 0,
+      discountedTenants: 0,
     };
   }
 

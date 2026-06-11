@@ -13,6 +13,7 @@ export type Icon3dName =
   | 'caretakers'
   | 'language'
   | 'collected'
+  | 'payment'
   | 'outstanding'
   | 'occupancy'
   | 'pending'
@@ -186,6 +187,18 @@ let iconId = 0;
             <rect x="124" y="228" width="264" height="36" fill="#0D7A48" opacity="0.35" />
             <rect x="156" y="292" width="72" height="20" rx="10" fill="#EAF8F0" />
             <rect x="156" y="324" width="108" height="16" rx="8" fill="#55D28F" />
+          </g>
+        }
+        @case ('payment') {
+          <circle cx="256" cy="256" r="180" [attr.fill]="'url(#' + gid('bg') + ')'" />
+          <g [attr.filter]="'url(#' + gid('shadow') + ')'">
+            <rect x="148" y="300" width="216" height="44" rx="10" fill="#0D7A48" opacity="0.7" />
+            <rect x="136" y="268" width="232" height="44" rx="10" fill="#1FA463" opacity="0.85" />
+            <rect x="124" y="196" width="264" height="88" rx="16" [attr.fill]="'url(#' + gid('main') + ')'" />
+            <rect x="124" y="228" width="264" height="20" fill="#0D7A48" opacity="0.3" />
+            <circle cx="196" cy="240" r="18" fill="#55D28F" opacity="0.6" />
+            <rect x="228" y="232" width="120" height="16" rx="8" fill="#EAF8F0" opacity="0.9" />
+            <ellipse cx="220" cy="212" rx="28" ry="12" fill="#fff" opacity="0.2" />
           </g>
         }
         @case ('outstanding') {

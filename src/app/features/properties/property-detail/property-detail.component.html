@@ -79,9 +79,15 @@
                 <span class="metric-label">Collected</span>
                 <span class="metric-value">{{ stats.collectedThisMonth | currencyFormat: stats.currency }}</span>
               </div>
+              <div class="metric-card metric-to-collect">
+                <span class="metric-label">To Collect</span>
+                <span class="metric-value">{{ stats.toCollect | currencyFormat: stats.currency }}</span>
+                <span class="metric-sub">of {{ stats.expectedMonthlyRent | currencyFormat: stats.currency }}</span>
+              </div>
               <div class="metric-card metric-outstanding">
                 <span class="metric-label">Outstanding</span>
                 <span class="metric-value">{{ stats.outstandingRent | currencyFormat: stats.currency }}</span>
+                <span class="metric-sub">Past due</span>
               </div>
               <div class="metric-card metric-occupancy">
                 <span class="metric-label">Occupancy</span>
@@ -93,6 +99,18 @@
               <div class="metric-card metric-vacant">
                 <span class="metric-label">Vacant Rooms</span>
                 <span class="metric-value">{{ stats.vacantUnits }}</span>
+              </div>
+              <div class="metric-card metric-discount">
+                <span class="metric-label">Rent Discounts</span>
+                <span class="metric-value">{{ stats.monthlyDiscount | currencyFormat: stats.currency }}</span>
+                <span class="metric-sub">
+                  @if (stats.discountedTenants > 0) {
+                    {{ stats.listedRent | currencyFormat: stats.currency }} listed ·
+                    {{ stats.quotedRent | currencyFormat: stats.currency }} quoted
+                  } @else {
+                    Unit rates match tenant quotes
+                  }
+                </span>
               </div>
               <a routerLink="/requests" class="metric-card metric-maintenance metric-wide">
                 <span class="metric-label">Maintenance</span>
@@ -254,10 +272,13 @@
                   <p class="form-title">Edit tenant</p>
                   <label>
                     Unit
-                    <select formControlName="unitId">
+                    <select
+                      formControlName="unitId"
+                      (change)="onTenantUnitChange($any($event.target).value, units)"
+                    >
                       <option value="" disabled>Select unit</option>
                       @for (unit of tenantUnitOptions(units, editingTenantFrom(tenants)); track unit.id) {
-                        <option [value]="unit.id">{{ unit.name }}</option>
+                        <option [value]="unit.id">{{ unit.name }} — D{{ unit.monthlyRent }}</option>
                       }
                     </select>
                   </label>
@@ -273,6 +294,7 @@
                     <label>
                       Monthly rent
                       <input type="number" formControlName="monthlyRent" min="0" />
+                      <span class="field-hint">From unit rate — change for discounts.</span>
                     </label>
                     <label>
                       Due day

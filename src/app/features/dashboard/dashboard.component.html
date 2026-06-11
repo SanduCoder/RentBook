@@ -60,13 +60,24 @@
           </span>
         </div>
 
+        <div class="metric-card metric-to-collect">
+          <div class="metric-head">
+            <span class="metric-icon"><app-icon-3d name="bills" /></span>
+            <span class="metric-label">To Collect</span>
+          </div>
+          <span class="metric-value">{{ stats.toCollect | currencyFormat: stats.currency }}</span>
+          <span class="metric-trend">
+            of {{ stats.expectedMonthlyRent | currencyFormat: stats.currency }} expected
+          </span>
+        </div>
+
         <div class="metric-card metric-outstanding">
           <div class="metric-head">
             <span class="metric-icon"><app-icon-3d name="outstanding" /></span>
             <span class="metric-label">Outstanding</span>
           </div>
           <span class="metric-value">{{ stats.outstandingRent | currencyFormat: stats.currency }}</span>
-          <span class="metric-trend">{{ trendLabel(stats.outstandingTrend) }}</span>
+          <span class="metric-trend">Past due rent</span>
         </div>
 
         <div class="metric-card metric-occupancy">
@@ -87,6 +98,22 @@
           </div>
           <span class="metric-value">{{ stats.pendingRequests }}</span>
           <span class="metric-trend">Needs your action</span>
+        </div>
+
+        <div class="metric-card metric-discount">
+          <div class="metric-head">
+            <span class="metric-icon"><app-icon-3d name="expenses" /></span>
+            <span class="metric-label">Rent Discounts</span>
+          </div>
+          <span class="metric-value">{{ stats.monthlyDiscount | currencyFormat: stats.currency }}</span>
+          <span class="metric-trend">
+            @if (stats.discountedTenants > 0) {
+              {{ stats.listedRent | currencyFormat: stats.currency }} listed ·
+              {{ stats.quotedRent | currencyFormat: stats.currency }} quoted
+            } @else {
+              Unit rates match tenant quotes
+            }
+          </span>
         </div>
       </div>
       } @else if (pendingTenancyLink()) {

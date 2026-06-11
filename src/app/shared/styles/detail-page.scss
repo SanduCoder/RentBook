@@ -283,9 +283,11 @@
 
   @each $name, $color in (
     collected: #1b8a5a,
+    to-collect: #0e7490,
     outstanding: #e07a1f,
     occupancy: #3b82f6,
     vacant: #8b5cf6,
+    discount: #a21caf,
     maintenance: #e07a1f
   ) {
     .metric-#{$name} .metric-label,

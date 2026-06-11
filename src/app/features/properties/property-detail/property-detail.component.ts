@@ -2,7 +2,7 @@ import { AsyncPipe, DatePipe } from '@angular/common';
 import { Component, HostListener, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { catchError, combineLatest, map, of, switchMap } from 'rxjs';
+import { catchError, combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_LABELS,
@@ -22,6 +22,7 @@ import { UNIT_TYPES, Unit, UnitType, formatUnitLayout } from '../../../core/mode
 import { Property } from '../../../core/models/property.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { ExpenseService } from '../../../core/services/expense.service';
+import { ErrorNotificationService } from '../../../core/services/error-notification.service';
 import { InviteCodeService } from '../../../core/services/invite-code.service';
 import { MaintenanceService } from '../../../core/services/maintenance.service';
 import { PaymentService } from '../../../core/services/payment.service';
@@ -31,7 +32,10 @@ import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
 import { getMonthStart } from '../../../core/utils/firestore.utils';
 import {
+  calculateExpectedMonthlyRent,
+  calculateMonthlyDiscount,
   calculateOutstandingRent,
+  calculateToCollect,
   sumRentCredits,
 } from '../../../core/utils/payment-stats.utils';
 import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
@@ -53,6 +57,8 @@ type PropertyTab = 'overview' | 'units' | 'tenants' | 'expenses' | 'bills';
 
 interface PropertyOverview {
   collectedThisMonth: number;
+  expectedMonthlyRent: number;
+  toCollect: number;
   outstandingRent: number;
   occupiedUnits: number;
   vacantUnits: number;
@@ -60,6 +66,10 @@ interface PropertyOverview {
   occupancyRate: number;
   openMaintenance: number;
   currency: string;
+  monthlyDiscount: number;
+  listedRent: number;
+  quotedRent: number;
+  discountedTenants: number;
 }
 
 @Component({
@@ -82,6 +92,7 @@ export class PropertyDetailComponent implements OnInit {
   private sharedBillService = inject(SharedBillService);
   private auth = inject(AuthService);
   private inviteCodeService = inject(InviteCodeService);
+  private notifications = inject(ErrorNotificationService);
 
   regeneratingPropertyCode = signal(false);
   propertyInviteCode = signal('');
@@ -92,6 +103,7 @@ export class PropertyDetailComponent implements OnInit {
   savingUnit = signal(false);
   editingUnitId = signal<string | null>(null);
   editingTenantId = signal<string | null>(null);
+  editingTenantUnitId = signal<string | null>(null);
   editingExpenseId = signal<string | null>(null);
   editingBillId = signal<string | null>(null);
   savingTenant = signal(false);
@@ -136,9 +148,12 @@ export class PropertyDetailComponent implements OnInit {
           const occupiedUnits = units.filter((u) => u.status === 'occupied').length;
           const vacantUnits = units.filter((u) => u.status === 'vacant').length;
           const totalUnits = units.length;
+          const discount = calculateMonthlyDiscount(units, tenants);
 
           return {
             collectedThisMonth,
+            expectedMonthlyRent: calculateExpectedMonthlyRent(units, tenants),
+            toCollect: calculateToCollect(units, payments, { propertyId: id, tenants }),
             outstandingRent: calculateOutstandingRent(tenants, payments),
             occupiedUnits,
             vacantUnits,
@@ -146,11 +161,17 @@ export class PropertyDetailComponent implements OnInit {
             occupancyRate: totalUnits ? Math.round((occupiedUnits / totalUnits) * 100) : 0,
             openMaintenance: requests.filter((r) => r.status !== 'completed').length,
             currency: property?.currency ?? 'GMD',
+            monthlyDiscount: discount.totalDiscount,
+            listedRent: discount.listedRent,
+            quotedRent: discount.quotedRent,
+            discountedTenants: discount.discountedTenants,
           } satisfies PropertyOverview;
         }),
         catchError(() =>
           of({
             collectedThisMonth: 0,
+            expectedMonthlyRent: 0,
+            toCollect: 0,
             outstandingRent: 0,
             occupiedUnits: 0,
             vacantUnits: 0,
@@ -158,6 +179,10 @@ export class PropertyDetailComponent implements OnInit {
             occupancyRate: 0,
             openMaintenance: 0,
             currency: 'GMD',
+            monthlyDiscount: 0,
+            listedRent: 0,
+            quotedRent: 0,
+            discountedTenants: 0,
           })
         )
       )
@@ -342,9 +367,7 @@ export class PropertyDetailComponent implements OnInit {
   async deleteProperty(property: Property): Promise<void> {
     this.showPropertyMenu.set(false);
 
-    const units = await new Promise<Unit[]>((resolve) => {
-      this.units$.subscribe((u) => resolve(u)).unsubscribe();
-    });
+    const units = await firstValueFrom(this.units$);
 
     if (units.length > 0) {
       window.alert(
@@ -373,6 +396,13 @@ export class PropertyDetailComponent implements OnInit {
   tenantUnitOptions(units: Unit[], tenant?: Tenant): Unit[] {
     if (!tenant) return units.filter((u) => u.status === 'vacant');
     return units.filter((u) => u.status === 'vacant' || u.id === tenant.unitId);
+  }
+
+  onTenantUnitChange(unitId: string, units: Unit[]): void {
+    const unit = units.find((item) => item.id === unitId);
+    if (unit) {
+      this.tenantForm.patchValue({ monthlyRent: unit.monthlyRent });
+    }
   }
 
   editingTenantFrom(tenants: Tenant[]): Tenant | undefined {
@@ -430,16 +460,13 @@ export class PropertyDetailComponent implements OnInit {
       if (editingId) {
         await this.unitService.update(editingId, payload);
       } else {
+        const currentCount = (await firstValueFrom(this.units$)).length;
         await this.unitService.create(propertyId, payload);
-        const units = await new Promise<number>((resolve) => {
-          this.units$.subscribe((u) => resolve(u.length + 1)).unsubscribe();
-        });
-        await this.propertyService.updateUnitCount(propertyId, units);
+        await this.propertyService.updateUnitCount(propertyId, currentCount + 1);
       }
       this.cancelUnitForm();
-      if (!editingId) {
-        this.setTab('units');
-      }
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not save unit.');
     } finally {
       this.savingUnit.set(false);
     }
@@ -452,15 +479,18 @@ export class PropertyDetailComponent implements OnInit {
     }
     if (!window.confirm(`Delete "${unit.name}"? This cannot be undone.`)) return;
 
-    await this.unitService.delete(unit.id);
-    const count = await new Promise<number>((resolve) => {
-      this.units$.subscribe((u) => resolve(Math.max(0, u.length - 1))).unsubscribe();
-    });
-    await this.propertyService.updateUnitCount(propertyId, count);
+    try {
+      const currentCount = (await firstValueFrom(this.units$)).length;
+      await this.unitService.delete(unit.id);
+      await this.propertyService.updateUnitCount(propertyId, Math.max(0, currentCount - 1));
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not delete unit.');
+    }
   }
 
   startEditTenant(tenant: Tenant): void {
     this.editingTenantId.set(tenant.id);
+    this.editingTenantUnitId.set(tenant.unitId);
     this.tenantForm.patchValue({
       unitId: tenant.unitId,
       name: tenant.name,
@@ -474,6 +504,7 @@ export class PropertyDetailComponent implements OnInit {
 
   cancelTenantForm(): void {
     this.editingTenantId.set(null);
+    this.editingTenantUnitId.set(null);
     this.tenantForm.reset({
       unitId: '',
       name: '',
@@ -492,26 +523,26 @@ export class PropertyDetailComponent implements OnInit {
     this.savingTenant.set(true);
     try {
       const raw = this.tenantForm.getRawValue();
-      const existing = await new Promise<Tenant | undefined>((resolve) => {
-        this.tenantService.getById(editingId).subscribe((t) => resolve(t)).unsubscribe();
-      });
-      if (!existing) return;
+      const previousUnitId = this.editingTenantUnitId();
 
-      if (existing.unitId !== raw.unitId) {
-        await this.unitService.update(existing.unitId, { status: 'vacant' });
+      if (previousUnitId && previousUnitId !== raw.unitId) {
+        await this.unitService.update(previousUnitId, { status: 'vacant' });
         await this.unitService.update(raw.unitId, { status: 'occupied' });
       }
 
       await this.tenantService.update(editingId, {
         unitId: raw.unitId,
-        name: raw.name,
-        phone: raw.phone,
-        email: raw.email || undefined,
+        name: raw.name.trim(),
+        phone: raw.phone.trim(),
+        email: raw.email?.trim() || undefined,
         moveInDate: new Date(raw.moveInDate),
-        monthlyRent: raw.monthlyRent,
-        dueDay: raw.dueDay,
+        monthlyRent: Number(raw.monthlyRent),
+        dueDay: Number(raw.dueDay),
       });
       this.cancelTenantForm();
+      this.notifications.success('Tenant updated.');
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not update tenant.');
     } finally {
       this.savingTenant.set(false);
     }

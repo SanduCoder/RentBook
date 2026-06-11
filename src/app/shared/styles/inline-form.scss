@@ -17,7 +17,8 @@
     color: var(--text-primary);
   }
 
-  .hint {
+  .hint,
+  .field-hint {
     font-size: 0.75rem;
     font-weight: 400;
     color: var(--text-muted);

@@ -23,17 +23,18 @@
   }
 
   @if (form.value.propertyId) {
-    @if (units$ | async; as units) {
-      <label>
-        Unit
-        <select formControlName="unitId">
-          <option value="" disabled>Select unit</option>
-          @for (unit of units; track unit.id) {
-            <option [value]="unit.id">{{ unit.name }} — D{{ unit.monthlyRent }}</option>
-          }
-        </select>
-      </label>
-    }
+    <label>
+      Unit
+      <select formControlName="unitId" (change)="onUnitChange($any($event.target).value)">
+        <option value="" disabled>Select unit</option>
+        @for (unit of vacantUnits(); track unit.id) {
+          <option [value]="unit.id">{{ unit.name }} — D{{ unit.monthlyRent }}</option>
+        }
+        @if (vacantUnits().length === 0) {
+          <option value="" disabled>No vacant units</option>
+        }
+      </select>
+    </label>
   }
 
   <label>
@@ -58,7 +59,8 @@
 
   <label>
     Monthly Rent
-    <input type="number" formControlName="monthlyRent" />
+    <input type="number" formControlName="monthlyRent" min="0" />
+    <span class="field-hint">Filled from unit rate — change if the tenant has a discount.</span>
   </label>
 
   <label>
