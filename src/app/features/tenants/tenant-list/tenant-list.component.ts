@@ -1,4 +1,4 @@
-import { AsyncPipe, DatePipe } from '@angular/common';
+import { AsyncPipe, DatePipe, NgStyle } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -14,7 +14,9 @@ import { RentReminderService } from '../../../core/services/rent-reminder.servic
 import { PendingTenantUser, UserService } from '../../../core/services/user.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
+import { getAvatarColors, getInitials } from '../../../core/utils/avatar.utils';
 import {
+  TenantRentStatus,
   TenantRentStatusInfo,
   getTenantRentStatus,
 } from '../../../core/utils/tenant-status.utils';
@@ -29,12 +31,27 @@ interface TenantListItem {
   rentStatus: TenantRentStatusInfo;
 }
 
+interface TenantSection {
+  key: TenantRentStatus;
+  title: string;
+  items: TenantListItem[];
+}
+
+interface CollectionSummary {
+  currency: string;
+  totalUnpaid: number;
+  overdueCount: number;
+  dueSoonCount: number;
+  unpaidCount: number;
+}
+
 @Component({
   selector: 'app-tenant-list',
   standalone: true,
   imports: [
     AsyncPipe,
     DatePipe,
+    NgStyle,
     FormsModule,
     ReactiveFormsModule,
     RouterLink,
@@ -124,6 +141,57 @@ export class TenantListComponent {
         item.propertyName.toLowerCase().includes(query) ||
         item.tenant.phone.includes(query)
     );
+  }
+
+  collectionSummary(items: TenantListItem[]): CollectionSummary | null {
+    const filtered = this.filterTenants(items);
+    if (filtered.length === 0) return null;
+
+    const unpaid = filtered.filter((item) => item.rentStatus.status !== 'paid');
+    return {
+      currency: filtered[0].currency,
+      totalUnpaid: unpaid.reduce((sum, item) => sum + item.tenant.monthlyRent, 0),
+      overdueCount: unpaid.filter((item) => item.rentStatus.status === 'overdue').length,
+      dueSoonCount: unpaid.filter((item) => item.rentStatus.status === 'due_soon').length,
+      unpaidCount: unpaid.length,
+    };
+  }
+
+  groupTenants(items: TenantListItem[]): TenantSection[] {
+    const filtered = this.filterTenants(items);
+    const buckets: Record<TenantRentStatus, TenantListItem[]> = {
+      overdue: [],
+      due_soon: [],
+      upcoming: [],
+      paid: [],
+    };
+
+    for (const item of filtered) {
+      buckets[item.rentStatus.status].push(item);
+    }
+
+    const sections: TenantSection[] = [];
+    if (buckets.overdue.length) {
+      sections.push({ key: 'overdue', title: 'Overdue', items: buckets.overdue });
+    }
+    if (buckets.due_soon.length) {
+      sections.push({ key: 'due_soon', title: 'Due soon', items: buckets.due_soon });
+    }
+    if (buckets.upcoming.length) {
+      sections.push({ key: 'upcoming', title: 'Upcoming', items: buckets.upcoming });
+    }
+    if (buckets.paid.length) {
+      sections.push({ key: 'paid', title: 'Paid this month', items: buckets.paid });
+    }
+    return sections;
+  }
+
+  tenantInitials(name: string): string {
+    return getInitials(name);
+  }
+
+  avatarStyle(name: string): { background: string; color: string } {
+    return getAvatarColors(name);
   }
 
   filterPending(items: PendingTenantUser[]): PendingTenantUser[] {

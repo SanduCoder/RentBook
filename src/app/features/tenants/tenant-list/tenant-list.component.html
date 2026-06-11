@@ -6,10 +6,19 @@
           <path d="M15 6l-6 6 6 6" />
         </svg>
       </a>
-      <h1>Tenants</h1>
+      <div class="hero-title">
+        <h1>Tenants</h1>
+        @if (tenants$ | async; as tenants) {
+          @if (collectionSummary(tenants); as summary) {
+            <p class="hero-subtitle">Rent collection · {{ filterTenants(tenants).length }} assigned</p>
+          }
+        }
+      </div>
       <span class="icon-spacer"></span>
     </div>
+  </header>
 
+  <div class="search-wrap">
     <div class="search-row">
       <label class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -23,15 +32,32 @@
           (ngModelChange)="search.set($event)"
         />
       </label>
-      <button type="button" class="filter-btn" aria-label="Filter">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M4 6h16M7 12h10M10 18h4" />
-        </svg>
-      </button>
     </div>
-  </header>
+  </div>
 
   <div class="content">
+    @if (tenants$ | async; as tenants) {
+      @if (collectionSummary(tenants); as summary) {
+        <section class="collection-summary" [class.has-alert]="summary.overdueCount > 0">
+          <div class="summary-main">
+            <span class="summary-label">Unpaid this month</span>
+            <span class="summary-value">{{ summary.totalUnpaid | currencyFormat: summary.currency }}</span>
+          </div>
+          <p class="summary-meta">
+            @if (summary.overdueCount > 0) {
+              <span class="meta-alert">{{ summary.overdueCount }} overdue</span>
+            }
+            @if (summary.dueSoonCount > 0) {
+              <span>{{ summary.dueSoonCount }} due soon</span>
+            }
+            @if (summary.unpaidCount === 0) {
+              <span>All rents collected</span>
+            }
+          </p>
+        </section>
+      }
+    }
+
     @if (pendingTenants$ | async; as pendingTenants) {
       @if (filterPending(pendingTenants).length > 0) {
         <section class="pending-section">
@@ -45,7 +71,9 @@
             @for (user of filterPending(pendingTenants); track user.id) {
               <li class="pending-card">
                 <div class="pending-main">
-                  <div class="avatar">{{ user.name.charAt(0) }}</div>
+                  <div class="avatar" [ngStyle]="avatarStyle(user.name)">
+                    {{ tenantInitials(user.name) }}
+                  </div>
                   <div class="pending-info">
                     <h3>{{ user.name }}</h3>
                     <p>{{ user.phone }}</p>
@@ -138,54 +166,67 @@
 
     @if (pendingTenants$ | async; as pendingTenants) {
       @if (tenants$ | async; as tenants) {
-      @if (filterTenants(tenants).length === 0 && filterPending(pendingTenants).length === 0) {
-        <app-empty-state
-          icon="👥"
-          [title]="search() ? 'No tenants found' : 'No tenants yet'"
-          [message]="search() ? 'Try a different name, room, or phone number.' : 'Add tenants from a property to see them here.'"
-        >
-          @if (!search()) {
-            <a routerLink="/properties" class="btn-primary">Go to Properties</a>
+        @if (filterTenants(tenants).length === 0 && filterPending(pendingTenants).length === 0) {
+          <app-empty-state
+            icon="👥"
+            [title]="search() ? 'No tenants found' : 'No tenants yet'"
+            [message]="search() ? 'Try a different name, room, or phone number.' : 'Add tenants from a property to see them here.'"
+          >
+            @if (!search()) {
+              <a routerLink="/properties" class="btn-primary">Go to Properties</a>
+            }
+          </app-empty-state>
+        } @else if (filterTenants(tenants).length > 0) {
+          @for (section of groupTenants(tenants); track section.key) {
+            <section class="tenant-section" [class]="'section-' + section.key">
+              <div class="section-head">
+                <h2>{{ section.title }}</h2>
+                <span class="section-count">{{ section.items.length }}</span>
+              </div>
+
+              <ul class="tenant-list">
+                @for (item of section.items; track item.tenant.id) {
+                  <li class="tenant-card-wrap">
+                    <article class="tenant-card">
+                      <a [routerLink]="['/tenants', item.tenant.id]" class="tenant-main">
+                        <div class="avatar" [ngStyle]="avatarStyle(item.tenant.name)">
+                          {{ tenantInitials(item.tenant.name) }}
+                        </div>
+
+                        <div class="tenant-info">
+                          <h3>{{ item.tenant.name }}</h3>
+                          <p class="unit-line">{{ item.unitName }}</p>
+                          <p class="property-line">{{ item.propertyName }}</p>
+                          <p class="rent-line">
+                            {{ item.tenant.monthlyRent | currencyFormat: item.currency }} / month
+                          </p>
+                        </div>
+                      </a>
+
+                      <div class="tenant-actions">
+                        <div class="status-group">
+                          <span class="status-badge" [class]="item.rentStatus.status">
+                            {{ item.rentStatus.statusLabel }}
+                          </span>
+                          <span class="due-date">
+                            {{ item.rentStatus.dateLabel }}
+                            {{ item.rentStatus.dateValue | date: 'MMM d' }}
+                          </span>
+                        </div>
+
+                        @if (canSendReminder(item.rentStatus) && item.tenant.phone) {
+                          <button type="button" class="remind-btn" (click)="sendReminder(item)">
+                            Remind
+                          </button>
+                        }
+                      </div>
+                    </article>
+                  </li>
+                }
+              </ul>
+            </section>
           }
-        </app-empty-state>
-      } @else if (filterTenants(tenants).length > 0) {
-        @if (filterPending(pendingTenants).length > 0) {
-          <h2 class="assigned-heading">Assigned tenants</h2>
         }
-        <ul class="tenant-list">
-          @for (item of filterTenants(tenants); track item.tenant.id) {
-            <li class="tenant-row">
-              <a [routerLink]="['/tenants', item.tenant.id]" class="tenant-card">
-                <div class="avatar">{{ item.tenant.name.charAt(0) }}</div>
-                <div class="tenant-info">
-                  <div class="tenant-top">
-                    <h3>{{ item.tenant.name }}</h3>
-                    <span class="status-badge" [class]="item.rentStatus.status">
-                      {{ item.rentStatus.statusLabel }}
-                    </span>
-                  </div>
-                  <p class="unit-line">{{ item.unitName }}</p>
-                  <p class="property-line">{{ item.propertyName }}</p>
-                  <div class="tenant-bottom">
-                    <p class="rent-line">
-                      {{ item.tenant.monthlyRent | currencyFormat: item.currency }} / month
-                    </p>
-                    <p class="date-line" [class]="item.rentStatus.status">
-                      {{ item.rentStatus.dateLabel }}:
-                      {{ item.rentStatus.dateValue | date: 'MMM d, yyyy' }}
-                    </p>
-                  </div>
-                </div>
-              </a>
-              @if (canSendReminder(item.rentStatus) && item.tenant.phone) {
-                <button type="button" class="remind-btn" (click)="sendReminder(item)">
-                  Remind
-                </button>
-              }
-            </li>
-          }
-        </ul>
-      }
       }
     }
   </div>
