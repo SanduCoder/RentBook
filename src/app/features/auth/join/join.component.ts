@@ -9,11 +9,12 @@ import { AuthService } from '../../../core/services/auth.service';
 import { InviteCodeService } from '../../../core/services/invite-code.service';
 import { UnitService } from '../../../core/services/unit.service';
 import { hasPendingTenancyLink, isTenancyLinked } from '../../../core/utils/role.utils';
+import { RecaptchaNoticeComponent } from '../../../shared/components/recaptcha-notice/recaptcha-notice.component';
 
 @Component({
   selector: 'app-join',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, AsyncPipe],
+  imports: [ReactiveFormsModule, RouterLink, AsyncPipe, RecaptchaNoticeComponent],
   templateUrl: './join.component.html',
   styleUrl: './join.component.scss',
 })

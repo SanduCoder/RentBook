@@ -126,3 +126,8 @@ button:active:not(:disabled),
 .btn-secondary:active {
   transform: scale(0.98);
 }
+
+/* App Check uses invisible reCAPTCHA v3; hide badge per Google guidelines when disclaimer is shown. */
+.grecaptcha-badge {
+  visibility: hidden !important;
+}

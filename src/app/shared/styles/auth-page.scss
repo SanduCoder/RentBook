@@ -394,6 +394,11 @@
     font-weight: 600;
     text-decoration: none;
   }
+
+  app-recaptcha-notice {
+    display: block;
+    margin-top: 1rem;
+  }
   
   .field-hint {
     margin: -0.5rem 0 0;

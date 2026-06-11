@@ -109,6 +109,8 @@ export class AuthService {
     role: UserRole = 'owner',
     _options?: { inviteCode?: string; unitId?: string }
   ): Promise<void> {
+    await ensureAppCheckReady(this.appCheck ?? null);
+
     const credential = await createUserWithEmailAndPassword(this.auth, email, password);
     await updateFirebaseProfile(credential.user, { displayName: name });
     await sendEmailVerification(credential.user);

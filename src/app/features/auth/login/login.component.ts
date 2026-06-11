@@ -2,6 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { RecaptchaNoticeComponent } from '../../../shared/components/recaptcha-notice/recaptcha-notice.component';
 
 const REMEMBER_EMAIL_KEY = 'rentbook_remember_email';
 
@@ -40,7 +41,7 @@ function getAuthErrorMessage(err: unknown): string {
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, RecaptchaNoticeComponent],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss',
 })

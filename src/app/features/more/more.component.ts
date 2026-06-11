@@ -5,11 +5,12 @@ import { InviteCodeService } from '../../core/services/invite-code.service';
 import { canManageTenants, roleLabel } from '../../core/utils/role.utils';
 import { Icon3dComponent } from '../../shared/components/icon-3d/icon-3d.component';
 import { InviteCodeDisplayComponent } from '../../shared/components/invite-code-display/invite-code-display.component';
+import { RecaptchaNoticeComponent } from '../../shared/components/recaptcha-notice/recaptcha-notice.component';
 
 @Component({
   selector: 'app-more',
   standalone: true,
-  imports: [RouterLink, InviteCodeDisplayComponent, Icon3dComponent],
+  imports: [RouterLink, InviteCodeDisplayComponent, Icon3dComponent, RecaptchaNoticeComponent],
   templateUrl: './more.component.html',
   styleUrl: './more.component.scss',
 })

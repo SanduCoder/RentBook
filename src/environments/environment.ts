@@ -9,6 +9,6 @@ export const environment = {
     appId: '1:642616978956:web:c4bbf9d4904e8996924829',
     measurementId: 'G-VDE3009TTM',
   },
-  /** Set in Cloudflare/Firebase console after enabling App Check with reCAPTCHA v3 */
+  /** reCAPTCHA v3 site key — must match Firebase App Check + reCAPTCHA admin */
   appCheckRecaptchaSiteKey: '6LfYMxgtAAAAAEn-YA-jMisZrrTZig2DsJAyIIH-',
 };

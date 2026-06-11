@@ -34,6 +34,23 @@ service cloud.firestore {
         (!('tenantRecordId' in resource.data) || resource.data.tenantRecordId == null);
     }
 
+    function hasNoTenantAssignment() {
+      return !('tenantRecordId' in userDoc()) || userDoc().tenantRecordId == null;
+    }
+
+    function canSelfJoinProperty(propertyId) {
+      return hasNoTenantAssignment() && (
+        !('linkedPropertyId' in userDoc()) ||
+        userDoc().linkedPropertyId == null ||
+        userDoc().linkedPropertyId == propertyId
+      );
+    }
+
+    function vacantUnitForProperty(unitId, propertyId) {
+      let unit = get(/databases/$(database)/documents/units/$(unitId)).data;
+      return unit.propertyId == propertyId && unit.status == 'vacant';
+    }
+
     function profileOnlyUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['name', 'phone', 'photoUrl']);
@@ -45,11 +62,21 @@ service cloud.firestore {
     }
 
     function tenantOwnerLinkUpdate() {
-      return resource.data.role != 'tenant' &&
-        request.resource.data.role == 'tenant' &&
+      return request.resource.data.role == 'tenant' &&
         request.resource.data.linkedOwnerId is string &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['linkedOwnerId', 'role']);
+        hasNoTenantAssignment() &&
+        (
+          (
+            resource.data.role != 'tenant' &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['linkedOwnerId', 'role'])
+          ) ||
+          (
+            resource.data.role == 'tenant' &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['linkedOwnerId'])
+          )
+        );
     }
 
     function tenantPropertyLinkUpdate() {
@@ -78,7 +105,11 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['linkedOwnerId', 'linkedPropertyId', 'tenantRecordId', 'role']) ||
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['linkedPropertyId', 'tenantRecordId', 'role'])
+            .hasOnly(['linkedPropertyId', 'tenantRecordId', 'role']) ||
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['linkedOwnerId', 'linkedPropertyId', 'tenantRecordId']) ||
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['linkedPropertyId', 'tenantRecordId'])
         );
     }
 
@@ -150,7 +181,10 @@ service cloud.firestore {
           resource.data.status == 'vacant' &&
           request.resource.data.status == 'occupied' &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-          userDoc().linkedPropertyId == resource.data.propertyId
+          (
+            userDoc().linkedPropertyId == resource.data.propertyId ||
+            canSelfJoinProperty(resource.data.propertyId)
+          )
         )
       );
       allow delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
@@ -165,7 +199,12 @@ service cloud.firestore {
         isPropertyOwner(request.resource.data.propertyId) ||
         (
           request.resource.data.userId == request.auth.uid &&
-          userDoc().linkedPropertyId == request.resource.data.propertyId
+          request.resource.data.unitId is string &&
+          canSelfJoinProperty(request.resource.data.propertyId) &&
+          vacantUnitForProperty(
+            request.resource.data.unitId,
+            request.resource.data.propertyId
+          )
         )
       );
       allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
