@@ -51,7 +51,11 @@
 }
 
 .nav-item.active {
-  color: #1b8a5a;
+  color: #0f5234;
+}
+
+.nav-item.active .nav-label {
+  font-weight: 800;
 }
 
 .nav-item.active::before {
@@ -60,8 +64,8 @@
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 1.75rem;
-  height: 2px;
+  width: 2.25rem;
+  height: 3px;
   background: #1b8a5a;
-  border-radius: 0 0 2px 2px;
+  border-radius: 0 0 3px 3px;
 }

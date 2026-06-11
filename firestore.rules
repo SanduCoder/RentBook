@@ -224,5 +224,31 @@ service cloud.firestore {
       allow create: if isSignedIn() && isPropertyOwner(request.resource.data.propertyId);
       allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
     }
+
+    match /rentReminders/{reminderId} {
+      allow read: if isSignedIn() && (
+        isPropertyOwner(resource.data.propertyId) ||
+        (
+          isAssignedTenant() &&
+          resource.data.tenantId == userDoc().tenantRecordId
+        )
+      );
+      allow create: if isSignedIn() &&
+        isPropertyOwner(request.resource.data.propertyId) &&
+        request.resource.data.sentBy == request.auth.uid &&
+        request.resource.data.read == false &&
+        request.resource.data.tenantId is string &&
+        request.resource.data.message is string;
+      allow update: if isSignedIn() && (
+        (
+          isAssignedTenant() &&
+          resource.data.tenantId == userDoc().tenantRecordId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) &&
+          request.resource.data.read == true
+        ) ||
+        isPropertyOwner(resource.data.propertyId)
+      );
+      allow delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+    }
   }
 }

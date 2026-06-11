@@ -136,14 +136,10 @@
                 <span class="action-icon history">📄</span>
                 <span>Payment History</span>
               </button>
-              <a
-                [href]="reminderLink(vm.tenant, vm.tenant.monthlyRent, vm.currency)"
-                target="_blank"
-                class="action-item"
-              >
+              <button type="button" class="action-item" (click)="sendReminder(vm)">
                 <span class="action-icon reminder">🔔</span>
                 <span>Send Reminder</span>
-              </a>
+              </button>
               <a [href]="whatsAppLink(vm.tenant.phone)" target="_blank" class="action-item">
                 <span class="action-icon whatsapp">💬</span>
                 <span>WhatsApp</span>

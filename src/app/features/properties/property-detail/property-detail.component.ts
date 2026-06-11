@@ -19,7 +19,7 @@ import {
 } from '../../../core/models/shared-bill.model';
 import { Tenant } from '../../../core/models/tenant.model';
 import { UNIT_TYPES, Unit, UnitType, formatUnitLayout } from '../../../core/models/unit.model';
-import { Property } from '../../../core/models/property.model';
+import { PROPERTY_TYPE_LABELS, Property, PropertyType } from '../../../core/models/property.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { ExpenseService } from '../../../core/services/expense.service';
 import { ErrorNotificationService } from '../../../core/services/error-notification.service';
@@ -35,13 +35,16 @@ import {
   calculateExpectedMonthlyRent,
   calculateMonthlyDiscount,
   calculateOutstandingRent,
-  calculateToCollect,
   sumRentCredits,
 } from '../../../core/utils/payment-stats.utils';
 import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
 import { PropertyActivity, propertyActivityLink } from '../../../core/utils/activity.utils';
+import { RentReminderService } from '../../../core/services/rent-reminder.service';
 import {
+  PropertyRentDueSummary,
+  RentDueTenant,
   TenantRentStatusInfo,
+  getPropertyRentDueSummary,
   getTenantRentStatus,
 } from '../../../core/utils/tenant-status.utils';
 
@@ -58,7 +61,6 @@ type PropertyTab = 'overview' | 'units' | 'tenants' | 'expenses' | 'bills';
 interface PropertyOverview {
   collectedThisMonth: number;
   expectedMonthlyRent: number;
-  toCollect: number;
   outstandingRent: number;
   occupiedUnits: number;
   vacantUnits: number;
@@ -70,6 +72,7 @@ interface PropertyOverview {
   listedRent: number;
   quotedRent: number;
   discountedTenants: number;
+  rentDue: PropertyRentDueSummary;
 }
 
 @Component({
@@ -93,6 +96,7 @@ export class PropertyDetailComponent implements OnInit {
   private auth = inject(AuthService);
   private inviteCodeService = inject(InviteCodeService);
   private notifications = inject(ErrorNotificationService);
+  private rentReminders = inject(RentReminderService);
 
   regeneratingPropertyCode = signal(false);
   propertyInviteCode = signal('');
@@ -109,6 +113,8 @@ export class PropertyDetailComponent implements OnInit {
   savingTenant = signal(false);
   savingExpense = signal(false);
   savingBill = signal(false);
+
+  propertyTypeLabels = PROPERTY_TYPE_LABELS;
 
   expenseLabels = EXPENSE_CATEGORY_LABELS;
   expenseCategories = EXPENSE_CATEGORIES;
@@ -149,11 +155,11 @@ export class PropertyDetailComponent implements OnInit {
           const vacantUnits = units.filter((u) => u.status === 'vacant').length;
           const totalUnits = units.length;
           const discount = calculateMonthlyDiscount(units, tenants);
+          const unitNames = new Map(units.map((u) => [u.id, u.name]));
 
           return {
             collectedThisMonth,
             expectedMonthlyRent: calculateExpectedMonthlyRent(units, tenants),
-            toCollect: calculateToCollect(units, payments, { propertyId: id, tenants }),
             outstandingRent: calculateOutstandingRent(tenants, payments),
             occupiedUnits,
             vacantUnits,
@@ -165,13 +171,13 @@ export class PropertyDetailComponent implements OnInit {
             listedRent: discount.listedRent,
             quotedRent: discount.quotedRent,
             discountedTenants: discount.discountedTenants,
+            rentDue: getPropertyRentDueSummary(tenants, unitNames, payments),
           } satisfies PropertyOverview;
         }),
         catchError(() =>
           of({
             collectedThisMonth: 0,
             expectedMonthlyRent: 0,
-            toCollect: 0,
             outstandingRent: 0,
             occupiedUnits: 0,
             vacantUnits: 0,
@@ -183,6 +189,7 @@ export class PropertyDetailComponent implements OnInit {
             listedRent: 0,
             quotedRent: 0,
             discountedTenants: 0,
+            rentDue: { nearest: null, dueThisWeekCount: 0 },
           })
         )
       )
@@ -386,9 +393,40 @@ export class PropertyDetailComponent implements OnInit {
     this.activeTab.set(tab);
   }
 
+  async sendRentReminder(due: RentDueTenant, currency: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    try {
+      await this.rentReminders.sendFromDue(due, currency, {
+        id: user.id,
+        name: user.name?.trim() || 'Your landlord',
+      });
+      this.notifications.success('Reminder saved in RentBook and sent via WhatsApp.');
+    } catch {
+      this.notifications.show('Could not send reminder. Try again.');
+    }
+  }
+
   locationLabel(address: string): string {
     const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
     return parts.length > 1 ? parts[parts.length - 1] : address;
+  }
+
+  typeLabel(type: PropertyType): string {
+    return PROPERTY_TYPE_LABELS[type];
+  }
+
+  unitWord(type: PropertyType, count: number): string {
+    const map: Record<PropertyType, [string, string]> = {
+      compound: ['room', 'rooms'],
+      apartment: ['unit', 'units'],
+      room: ['room', 'rooms'],
+      shop: ['shop', 'shops'],
+      office: ['office', 'offices'],
+    };
+    const [singular, plural] = map[type];
+    return count === 1 ? singular : plural;
   }
 
   activityLink = propertyActivityLink;

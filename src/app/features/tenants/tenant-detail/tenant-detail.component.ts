@@ -6,8 +6,11 @@ import { Payment } from '../../../core/models/payment.model';
 import { Property, PROPERTY_TYPE_LABELS } from '../../../core/models/property.model';
 import { Tenant } from '../../../core/models/tenant.model';
 import { Unit } from '../../../core/models/unit.model';
+import { AuthService } from '../../../core/services/auth.service';
+import { ErrorNotificationService } from '../../../core/services/error-notification.service';
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
+import { RentReminderService } from '../../../core/services/rent-reminder.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
 import { TenantRentStatusInfo, getTenantRentStatus } from '../../../core/utils/tenant-status.utils';
@@ -40,10 +43,13 @@ type TenantDetailState =
 })
 export class TenantDetailComponent {
   private route = inject(ActivatedRoute);
+  private auth = inject(AuthService);
   private tenantService = inject(TenantService);
   private paymentService = inject(PaymentService);
   private propertyService = inject(PropertyService);
   private unitService = inject(UnitService);
+  private rentReminders = inject(RentReminderService);
+  private notifications = inject(ErrorNotificationService);
 
   methodLabels = PAYMENT_METHOD_LABELS;
   propertyTypeLabels = PROPERTY_TYPE_LABELS;
@@ -95,12 +101,22 @@ export class TenantDetailComponent {
     return `https://wa.me/${digits}`;
   }
 
-  reminderLink(tenant: Tenant, amount: number, currency: string): string {
-    const digits = tenant.phone.replace(/\D/g, '');
-    const message = encodeURIComponent(
-      `Hi ${tenant.name}, this is a friendly reminder that your rent of ${currency === 'GMD' ? 'D' : currency}${amount.toLocaleString()} is due on day ${tenant.dueDay} of this month. Thank you!`
-    );
-    return `https://wa.me/${digits}?text=${message}`;
+  async sendReminder(data: TenantDetailData): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    try {
+      await this.rentReminders.sendForTenant(
+        data.tenant,
+        data.unitName,
+        data.currency,
+        data.rentStatus,
+        { id: user.id, name: user.name?.trim() || 'Your landlord' }
+      );
+      this.notifications.success('Reminder saved in RentBook and sent via WhatsApp.');
+    } catch {
+      this.notifications.show('Could not send reminder. Try again.');
+    }
   }
 
   scrollToHistory(): void {

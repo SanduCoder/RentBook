@@ -154,7 +154,7 @@
         }
         <ul class="tenant-list">
           @for (item of filterTenants(tenants); track item.tenant.id) {
-            <li>
+            <li class="tenant-row">
               <a [routerLink]="['/tenants', item.tenant.id]" class="tenant-card">
                 <div class="avatar">{{ item.tenant.name.charAt(0) }}</div>
                 <div class="tenant-info">
@@ -177,6 +177,11 @@
                   </div>
                 </div>
               </a>
+              @if (canSendReminder(item.rentStatus) && item.tenant.phone) {
+                <button type="button" class="remind-btn" (click)="sendReminder(item)">
+                  Remind
+                </button>
+              }
             </li>
           }
         </ul>

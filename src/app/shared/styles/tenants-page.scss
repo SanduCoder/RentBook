@@ -278,6 +278,30 @@
     flex-direction: column;
     gap: 0.625rem;
   }
+
+  .tenant-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5rem;
+
+    .tenant-card {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+
+  .remind-btn {
+    align-self: center;
+    flex-shrink: 0;
+    border: none;
+    background: #128c7e;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    cursor: pointer;
+  }
   
   .tenant-card {
     display: flex;

@@ -35,6 +35,7 @@ export class AuthService {
 
   constructor() {
     onAuthStateChanged(this.auth, async (user) => {
+      this.loading.set(true);
       this.firebaseUser.set(user);
       this.emailVerified.set(!!user?.emailVerified);
       try {
@@ -49,6 +50,41 @@ export class AuthService {
         this.loading.set(false);
       }
     });
+  }
+
+  /** Wait until Firebase auth and the Firestore user profile are in sync. */
+  waitForSession(timeoutMs = 8000): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const started = Date.now();
+      const tick = () => {
+        if (this.isSessionSettled()) {
+          resolve(this.isAuthenticated());
+          return;
+        }
+        if (Date.now() - started > timeoutMs) {
+          resolve(false);
+          return;
+        }
+        setTimeout(tick, 50);
+      };
+      tick();
+    });
+  }
+
+  isSessionSettled(): boolean {
+    if (this.loading()) {
+      return false;
+    }
+    const firebaseUser = this.firebaseUser() ?? this.auth.currentUser;
+    if (firebaseUser && !this.currentUser()) {
+      return false;
+    }
+    return true;
+  }
+
+  isAuthenticated(): boolean {
+    const firebaseUser = this.firebaseUser() ?? this.auth.currentUser;
+    return !!firebaseUser && !!this.currentUser() && this.emailVerified();
   }
 
   async register(
@@ -101,12 +137,29 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<void> {
     const credential = await signInWithEmailAndPassword(this.auth, email, password);
-    await credential.user.reload();
+    this.firebaseUser.set(credential.user);
+
+    try {
+      await credential.user.reload();
+    } catch {
+      // reload() can fail on some browsers (e.g. Safari with strict privacy); use cached user
+    }
+
     this.emailVerified.set(credential.user.emailVerified);
 
     if (!credential.user.emailVerified) {
       await signOut(this.auth);
       throw new Error('Please verify your email before signing in. Check your inbox for the verification link.');
+    }
+
+    try {
+      await this.loadUserProfile(credential.user.uid);
+    } catch {
+      throw new Error('Signed in but could not load your profile. Check your connection and try again.');
+    }
+
+    if (!this.currentUser()) {
+      throw new Error('No account profile found. Contact support if this continues.');
     }
   }
 

@@ -7,8 +7,10 @@ import { Property } from '../../../core/models/property.model';
 import { Tenant } from '../../../core/models/tenant.model';
 import { Unit } from '../../../core/models/unit.model';
 import { AuthService } from '../../../core/services/auth.service';
+import { ErrorNotificationService } from '../../../core/services/error-notification.service';
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
+import { RentReminderService } from '../../../core/services/rent-reminder.service';
 import { PendingTenantUser, UserService } from '../../../core/services/user.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
@@ -44,6 +46,8 @@ interface TenantListItem {
 })
 export class TenantListComponent {
   private auth = inject(AuthService);
+  private rentReminders = inject(RentReminderService);
+  private notifications = inject(ErrorNotificationService);
   private fb = inject(FormBuilder);
   private propertyService = inject(PropertyService);
   private tenantService = inject(TenantService);
@@ -185,6 +189,28 @@ export class TenantListComponent {
       this.assignError.set(err instanceof Error ? err.message : 'Could not assign tenant.');
     } finally {
       this.assigning.set(false);
+    }
+  }
+
+  canSendReminder(status: TenantRentStatusInfo): boolean {
+    return status.status === 'overdue' || status.status === 'due_soon';
+  }
+
+  async sendReminder(item: TenantListItem): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    try {
+      await this.rentReminders.sendForTenant(
+        item.tenant,
+        item.unitName,
+        item.currency,
+        item.rentStatus,
+        { id: user.id, name: user.name?.trim() || 'Your landlord' }
+      );
+      this.notifications.success('Reminder saved in RentBook and sent via WhatsApp.');
+    } catch {
+      this.notifications.show('Could not send reminder. Try again.');
     }
   }
 }

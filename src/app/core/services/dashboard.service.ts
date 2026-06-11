@@ -13,21 +13,21 @@ import {
   calculateExpectedMonthlyRent,
   calculateMonthlyDiscount,
   calculateOutstandingRent,
-  calculateToCollect,
   countPendingPaymentReports,
   sumConfirmedCollected,
   sumRentCredits,
 } from '../utils/payment-stats.utils';
 import { isTenant, isTenancyLinked } from '../utils/role.utils';
+import { PropertyRentDueSummary, getPropertyRentDueSummary } from '../utils/tenant-status.utils';
 
 export interface DashboardStats {
   collectedThisMonth: number;
   expectedMonthlyRent: number;
-  toCollect: number;
   outstandingRent: number;
   occupiedUnits: number;
   vacantUnits: number;
   totalUnits: number;
+  occupancyRate: number;
   pendingRequests: number;
   pendingPaymentReports: number;
   monthlyExpenses: number;
@@ -38,6 +38,9 @@ export interface DashboardStats {
   listedRent: number;
   quotedRent: number;
   discountedTenants: number;
+  rentDue: PropertyRentDueSummary;
+  propertyCount: number;
+  singlePropertyId: string | null;
 }
 
 export interface ActivityItem {
@@ -84,11 +87,17 @@ export class DashboardService {
     return this.propertyService.getByOwner(user.id).pipe(
       switchMap((properties) => {
         if (properties.length === 0) {
-          return of(this.emptyStats());
+          return of({
+            ...this.emptyStats(),
+            propertyCount: 0,
+            singlePropertyId: null,
+          });
         }
 
         const propertyIds = properties.map((p) => p.id);
         const currency = properties[0]?.currency ?? 'GMD';
+        const propertyCount = properties.length;
+        const singlePropertyId = propertyCount === 1 ? properties[0].id : null;
 
         const unitObs = properties.map((p) => this.unitService.getByProperty(p.id));
         const tenantObs = properties.map((p) => this.tenantService.getByProperty(p.id));
@@ -109,7 +118,9 @@ export class DashboardService {
 
             const collectedThisMonth = sumRentCredits(payments, { monthStart, now });
             const expectedMonthlyRent = calculateExpectedMonthlyRent(units, tenants);
-            const toCollect = calculateToCollect(units, payments, { tenants, now });
+            const unitNames = new Map(units.map((u) => [u.id, u.name]));
+            const totalUnits = units.length;
+            const occupiedUnits = units.filter((u) => u.status === 'occupied').length;
 
             const collectedLastMonth = sumConfirmedCollected(payments, lastMonthStart, monthStart);
 
@@ -127,11 +138,11 @@ export class DashboardService {
             return {
               collectedThisMonth,
               expectedMonthlyRent,
-              toCollect,
               outstandingRent,
-              occupiedUnits: units.filter((u) => u.status === 'occupied').length,
+              occupiedUnits,
               vacantUnits: units.filter((u) => u.status === 'vacant').length,
-              totalUnits: units.length,
+              totalUnits,
+              occupancyRate: totalUnits ? Math.round((occupiedUnits / totalUnits) * 100) : 0,
               pendingRequests,
               pendingPaymentReports,
               monthlyExpenses,
@@ -142,6 +153,9 @@ export class DashboardService {
               listedRent: discount.listedRent,
               quotedRent: discount.quotedRent,
               discountedTenants: discount.discountedTenants,
+              rentDue: getPropertyRentDueSummary(tenants, unitNames, payments, now),
+              propertyCount,
+              singlePropertyId,
             };
           })
         );
@@ -218,11 +232,11 @@ export class DashboardService {
     return {
       collectedThisMonth: 0,
       expectedMonthlyRent: 0,
-      toCollect: 0,
       outstandingRent: 0,
       occupiedUnits: 0,
       vacantUnits: 0,
       totalUnits: 0,
+      occupancyRate: 0,
       pendingRequests: 0,
       pendingPaymentReports: 0,
       monthlyExpenses: 0,
@@ -233,6 +247,9 @@ export class DashboardService {
       listedRent: 0,
       quotedRent: 0,
       discountedTenants: 0,
+      rentDue: { nearest: null, dueThisWeekCount: 0 },
+      propertyCount: 0,
+      singlePropertyId: null,
     };
   }
 

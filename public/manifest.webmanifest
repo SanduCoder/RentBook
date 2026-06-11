@@ -3,7 +3,7 @@
   "short_name": "RentBook",
   "description": "Manage rent, tenants, payments, and compound operations",
   "theme_color": "#1b8a5a",
-  "background_color": "#f8fafc",
+  "background_color": "#146843",
   "display": "standalone",
   "scope": "./",
   "start_url": "./",

@@ -18,6 +18,13 @@
       </span>
       <span class="nav-label">Properties</span>
     </a>
+
+    <a routerLink="/tenants" routerLinkActive="active" class="nav-item">
+      <span class="nav-icon" aria-hidden="true">
+        <app-icon-3d name="tenants" />
+      </span>
+      <span class="nav-label">Tenants</span>
+    </a>
   }
 
   <a
@@ -32,12 +39,14 @@
     <span class="nav-label">Payment</span>
   </a>
 
-  <a routerLink="/requests" routerLinkActive="active" class="nav-item">
-    <span class="nav-icon" aria-hidden="true">
-      <app-icon-3d name="requests" />
-    </span>
-    <span class="nav-label">Requests</span>
-  </a>
+  @if (!canManage()) {
+    <a routerLink="/requests" routerLinkActive="active" class="nav-item">
+      <span class="nav-icon" aria-hidden="true">
+        <app-icon-3d name="requests" />
+      </span>
+      <span class="nav-label">Requests</span>
+    </a>
+  }
 
   <a routerLink="/more" routerLinkActive="active" class="nav-item">
     <span class="nav-icon" aria-hidden="true">

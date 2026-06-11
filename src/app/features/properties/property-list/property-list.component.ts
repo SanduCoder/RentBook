@@ -83,6 +83,25 @@ export class PropertyListComponent {
     };
   }
 
+  portfolioSubtitle(properties: PropertyWithStats[]): string {
+    const summary = this.portfolioSummary(properties);
+    const propertyLabel = summary.propertyCount === 1 ? 'property' : 'properties';
+    const unitLabel = summary.totalUnits === 1 ? 'unit' : 'units';
+
+    if (!summary.totalUnits) {
+      return `${summary.propertyCount} ${propertyLabel}`;
+    }
+
+    return `${summary.propertyCount} ${propertyLabel} · ${summary.totalUnits} ${unitLabel} · ${summary.occupancyRate}% occupied`;
+  }
+
+  portfolioInsights(properties: PropertyWithStats[]): { vacantUnits: number; missingPhotos: number } {
+    return {
+      vacantUnits: properties.reduce((sum, property) => sum + property.vacantCount, 0),
+      missingPhotos: properties.filter((property) => !property.imageUrl).length,
+    };
+  }
+
   occupancyRate(property: PropertyWithStats): number {
     return property.totalCount
       ? Math.round((property.occupiedCount / property.totalCount) * 100)

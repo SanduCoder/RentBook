@@ -5,6 +5,32 @@ import { AuthService } from '../../../core/services/auth.service';
 
 const REMEMBER_EMAIL_KEY = 'rentbook_remember_email';
 
+function getAuthErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message.includes('verify your email')) {
+    return err.message;
+  }
+  if (err instanceof Error && err.message.includes('could not load your profile')) {
+    return err.message;
+  }
+
+  const code = (err as { code?: string })?.code;
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+    case 'auth/invalid-email':
+      return 'Invalid email or password. Please try again.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment and try again.';
+    case 'auth/network-request-failed':
+      return 'Network error. Check your connection and try again.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled.';
+    default:
+      return err instanceof Error ? err.message : 'Invalid email or password. Please try again.';
+  }
+}
+
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -109,8 +135,7 @@ export class LoginComponent implements OnInit {
       const code = this.route.snapshot.queryParamMap.get('code');
       this.router.navigate(code ? ['/join'] : ['/dashboard'], code ? { queryParams: { code } } : undefined);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Invalid email or password. Please try again.';
-      this.error.set(message);
+      this.error.set(getAuthErrorMessage(err));
     } finally {
       this.loading.set(false);
     }
