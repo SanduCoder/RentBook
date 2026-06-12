@@ -1,4 +1,5 @@
 import { EnvironmentInjector, Injectable, inject } from '@angular/core';
+import { AppCheck } from '@angular/fire/app-check';
 import {
   Firestore,
   Timestamp,
@@ -16,6 +17,7 @@ import { Observable, map, of } from 'rxjs';
 import { Payment, PaymentMethod, PaymentStatus } from '../models/payment.model';
 import { observeCollection, observeQuery } from '../utils/firestore-observable';
 import { observeByPropertyIds } from '../utils/property-query.utils';
+import { ensureAppCheckReady } from '../utils/app-check.utils';
 import { stripUndefined, toDate } from '../utils/firestore.utils';
 
 export interface CreatePaymentDto {
@@ -47,6 +49,7 @@ export interface ReportPaymentDto {
 @Injectable({ providedIn: 'root' })
 export class PaymentService {
   private firestore = inject(Firestore);
+  private appCheck = inject(AppCheck, { optional: true });
   private injector = inject(EnvironmentInjector);
   private collection = collection(this.firestore, 'payments');
 
@@ -81,6 +84,7 @@ export class PaymentService {
   }
 
   async reportPayment(data: ReportPaymentDto): Promise<string> {
+    await ensureAppCheckReady(this.appCheck ?? null);
     return this.create({
       ...data,
       status: 'pending_verification',

@@ -1,11 +1,11 @@
-import { APP_INITIALIZER, ApplicationConfig, ErrorHandler, inject, isDevMode, provideZoneChangeDetection } from '@angular/core';
+import { APP_INITIALIZER, ApplicationConfig, ErrorHandler, isDevMode, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideFirebaseApp, initializeApp, getApp } from '@angular/fire/app';
 import { provideAuth } from '@angular/fire/auth';
 import { provideFirestore } from '@angular/fire/firestore';
 import { provideStorage, getStorage } from '@angular/fire/storage';
-import { AppCheck, provideAppCheck, initializeAppCheck, ReCaptchaV3Provider } from '@angular/fire/app-check';
+import { provideAppCheck, initializeAppCheck, ReCaptchaV3Provider } from '@angular/fire/app-check';
 import {
   browserLocalPersistence,
   getAuth as getFirebaseAuth,
@@ -17,7 +17,6 @@ import { getFirestore as getFirebaseFirestore, initializeFirestore } from 'fireb
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
 import { GlobalErrorHandler } from './core/services/error-notification.service';
-import { ensureAppCheckReady } from './core/utils/app-check.utils';
 import { isIosStandalonePwa } from './core/utils/platform.utils';
 import { preloadRecaptcha } from './core/utils/pwa-bootstrap.utils';
 
@@ -43,9 +42,10 @@ function createFirestore() {
   }
 }
 
+const debugToken = (environment as { appCheckDebugToken?: string | boolean }).appCheckDebugToken;
 const appCheckSiteKey = environment.appCheckRecaptchaSiteKey?.trim() ?? '';
-/** App Check is optional for reads; only enable in production to avoid blocking local dev. */
-const shouldInitAppCheck = !!appCheckSiteKey && environment.production;
+/** Production always; local dev only when a debug token is configured (see PowerPing). */
+const shouldUseAppCheck = !!appCheckSiteKey && (environment.production || !!debugToken);
 
 function createAppCheck() {
   return initializeAppCheck(getApp(), {
@@ -54,24 +54,16 @@ function createAppCheck() {
   });
 }
 
-const appCheckProviders = shouldInitAppCheck
+const appCheckProviders = shouldUseAppCheck
   ? [provideAppCheck(() => createAppCheck())]
   : [];
 
-const appCheckBootstrapProviders = shouldInitAppCheck
+const recaptchaBootstrapProviders = shouldUseAppCheck
   ? [
       {
         provide: APP_INITIALIZER,
         multi: true,
-        useFactory: () => {
-          const appCheck = inject(AppCheck, { optional: true });
-          // Warm up in the background — never block first paint on reCAPTCHA/App Check.
-          return () => {
-            void preloadRecaptcha(appCheckSiteKey)
-              .then(() => ensureAppCheckReady(appCheck ?? null))
-              .catch(() => undefined);
-          };
-        },
+        useFactory: () => () => preloadRecaptcha(appCheckSiteKey),
       },
     ]
   : [];
@@ -83,7 +75,7 @@ export const appConfig: ApplicationConfig = {
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     provideFirebaseApp(() => initializeApp(environment.firebase)),
     ...appCheckProviders,
-    ...appCheckBootstrapProviders,
+    ...recaptchaBootstrapProviders,
     provideAuth(() => createAuth()),
     provideFirestore(() => createFirestore()),
     provideStorage(() => getStorage()),

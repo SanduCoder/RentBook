@@ -11,4 +11,5 @@ export const environment = {
   },
   /** reCAPTCHA v3 site key — must match Firebase App Check + reCAPTCHA admin */
   appCheckRecaptchaSiteKey: '6LfYMxgtAAAAAEn-YA-jMisZrrTZig2DsJAyIIH-',
+  appCheckDebugToken: '' as string | boolean,
 };

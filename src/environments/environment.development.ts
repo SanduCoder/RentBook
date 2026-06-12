@@ -9,8 +9,11 @@ export const environment = {
     appId: '1:642616978956:web:c4bbf9d4904e8996924829',
     measurementId: 'G-VDE3009TTM',
   },
-  /** Same key as production — required because Firestore rules enforce App Check. */
+  /** reCAPTCHA v3 site key (Firebase Console → App Check). Used in production; in dev only with `appCheckDebugToken`. */
   appCheckRecaptchaSiteKey: '6LfYMxgtAAAAAEn-YA-jMisZrrTZig2DsJAyIIH-',
-  /** Set to `true` or a registered token only if reCAPTCHA fails on localhost. */
-  appCheckDebugToken: false as string | boolean,
+  /**
+   * Set to `true` or a registered debug token to test App Check locally.
+   * Register tokens in Firebase Console → App Check → Manage debug tokens.
+   */
+  appCheckDebugToken: '' as string | boolean,
 };

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { AppCheck } from '@angular/fire/app-check';
 import { Storage, getDownloadURL, ref, uploadBytes } from '@angular/fire/storage';
-import { ensureAppCheckReady } from '../utils/app-check.utils';
+import { ensureAppCheckToken } from '../utils/app-check.utils';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -21,7 +21,7 @@ export class PropertyImageService {
   }
 
   async upload(ownerId: string, propertyId: string, file: File): Promise<string> {
-    await ensureAppCheckReady(this.appCheck ?? null);
+    await ensureAppCheckToken(this.appCheck ?? null);
     const error = this.validateImage(file);
     if (error) throw new Error(error);
 
