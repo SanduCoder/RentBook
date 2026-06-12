@@ -66,8 +66,8 @@
                       </svg>
                     </span>
                     <div class="detail-text">
-                      <span class="detail-label">Date</span>
-                      <span class="detail-value">{{ payment.date | date: 'MMM d, yyyy' }}</span>
+                      <span class="detail-label">Recorded</span>
+                      <span class="detail-value">{{ recordedAt(payment) | date: 'MMM d, yyyy · h:mm a' }}</span>
                     </div>
                   </div>
                   <div class="detail-item">

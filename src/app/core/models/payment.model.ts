@@ -71,6 +71,11 @@ export function paymentMethodLabel(method: PaymentMethod | string): string {
   return PAYMENT_METHOD_LABELS[method as PaymentMethod] ?? String(method).replace(/_/g, ' ');
 }
 
+/** When this payment was logged in RentBook — use for activity feeds and list ordering. */
+export function paymentRecordedAt(payment: Payment): Date {
+  return payment.createdAt ?? payment.date;
+}
+
 export type PaymentRecordedByViewer = 'owner' | 'tenant';
 
 /** Who logged this payment — tenant report vs landlord record. */

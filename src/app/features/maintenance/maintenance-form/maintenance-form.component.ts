@@ -90,6 +90,9 @@ export class MaintenanceFormComponent implements OnInit {
         tenantName = this.auth.currentUser()?.name;
       }
 
+      const user = this.auth.currentUser();
+      if (!user) return;
+
       await this.maintenanceService.create({
         propertyId: raw.propertyId,
         tenantId: raw.tenantId,
@@ -97,6 +100,8 @@ export class MaintenanceFormComponent implements OnInit {
         title: raw.title.trim(),
         description: raw.description.trim(),
         category: raw.category,
+        reportedBy: user.id,
+        reportedByTenant: this.isTenantUser(),
       });
       this.notifications.success('Maintenance request submitted.');
       this.router.navigate(['/requests']);

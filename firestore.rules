@@ -248,7 +248,6 @@ service cloud.firestore {
         isPropertyOwner(request.resource.data.propertyId) ||
         (
           isAssignedTenant() &&
-          hasAppCheck() &&
           request.resource.data.propertyId == userDoc().linkedPropertyId &&
           request.resource.data.tenantId == userDoc().tenantRecordId &&
           request.resource.data.status == 'pending_verification' &&

@@ -10,6 +10,7 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
   Payment,
+  paymentRecordedAt,
   paymentRecordedByLabel,
 } from '../../../core/models/payment.model';
 import { PaymentService } from '../../../core/services/payment.service';
@@ -47,6 +48,7 @@ export class MyPaymentsComponent implements OnInit {
   methodLabels = PAYMENT_METHOD_LABELS;
   statusLabels = PAYMENT_STATUS_LABELS;
   paymentDomId = (id: string) => listItemDomId('payment', id);
+  recordedAt = paymentRecordedAt;
 
   payments$ = of(this.auth.currentUser()).pipe(
     switchMap((user) => {

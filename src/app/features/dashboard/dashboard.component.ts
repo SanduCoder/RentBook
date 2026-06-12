@@ -4,6 +4,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
 import { Property } from '../../core/models/property.model';
+import { maintenanceCategoryIcon } from '../../core/models/maintenance.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ErrorNotificationService } from '../../core/services/error-notification.service';
 import { PropertyService } from '../../core/services/property.service';
@@ -204,12 +205,16 @@ export class DashboardComponent {
   }
 
   activityIcon(item: ActivityItem): string {
-    if (item.type === 'maintenance') return '💧';
+    if (item.type === 'maintenance' && item.maintenanceCategory) {
+      return maintenanceCategoryIcon(item.maintenanceCategory);
+    }
+    if (item.type === 'maintenance') return '🔧';
     if (item.type === 'overdue') return '🏠';
     return '👤';
   }
 
   activityStatus(item: ActivityItem): 'success' | 'warning' | 'info' {
+    if (item.statusTone) return item.statusTone;
     if (item.type === 'maintenance') return 'info';
     if (item.type === 'overdue') return 'warning';
     return 'success';

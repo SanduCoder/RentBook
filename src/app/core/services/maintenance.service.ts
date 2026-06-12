@@ -27,6 +27,8 @@ export interface CreateMaintenanceDto {
   title: string;
   description: string;
   category: MaintenanceCategory;
+  reportedBy: string;
+  reportedByTenant?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

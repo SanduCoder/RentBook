@@ -174,7 +174,7 @@
                     <div>
                       <span class="amount">{{ payment.amount | currencyFormat: vm.currency }}</span>
                       <span class="meta">
-                        {{ methodLabels[payment.method] }} · {{ payment.date | date: 'mediumDate' }}
+                        {{ methodLabels[payment.method] }} · {{ recordedAt(payment) | date: 'MMM d, yyyy · h:mm a' }}
                       </span>
                       <span class="recorded-by">{{ recordedByLabel(payment, vm) }}</span>
                     </div>

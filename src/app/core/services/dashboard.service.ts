@@ -10,7 +10,12 @@ import { TenantService } from './tenant.service';
 import { UnitService } from './unit.service';
 import { defaultCurrency } from '../config/country-profiles.config';
 import { propertyCountryCode, resolveOwnerListCurrency } from '../utils/currency-aggregation.utils';
-import { paymentMethodLabel, paymentRecordedByLabel, PAYMENT_STATUS_LABELS } from '../models/payment.model';
+import {
+  MaintenanceCategory,
+  maintenanceReportedByLabel,
+  maintenanceStatusTone,
+} from '../models/maintenance.model';
+import { paymentMethodLabel, paymentRecordedAt, paymentRecordedByLabel, PAYMENT_STATUS_LABELS } from '../models/payment.model';
 import { formatCurrency, getMonthStart } from '../utils/firestore.utils';
 import {
   calculateExpectedMonthlyRent,
@@ -55,6 +60,8 @@ export interface ActivityItem {
   type: 'payment' | 'overdue' | 'maintenance';
   message: string;
   detail?: string;
+  statusTone?: 'success' | 'warning' | 'info';
+  maintenanceCategory?: MaintenanceCategory;
   timestamp: Date;
   amount?: number;
   tenantId?: string;
@@ -185,33 +192,61 @@ export class DashboardService {
         if (!user) return of([]);
 
         if (isTenant(user.role) && isTenancyLinked(user)) {
-      return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
-        switchMap((payments) =>
-          this.propertyService.getById(user.linkedPropertyId!).pipe(
-            map((property) => {
-              const currency = property?.currency ?? defaultCurrency(user.countryCode);
-              return payments.slice(0, 10).map((p) => ({
-                id: p.id,
-                type: 'payment' as const,
-                message:
-                  p.status === 'pending_verification'
-                    ? `Payment reported — ${formatCurrency(p.amount, currency)} (${paymentMethodLabel(p.method)})`
-                    : `Payment ${PAYMENT_STATUS_LABELS[p.status] ?? p.status} — ${formatCurrency(p.amount, currency)}`,
-                detail: paymentRecordedByLabel(p, {
-                  viewer: 'tenant',
-                  tenantUserId: user.id,
-                  ownerId: property?.ownerId ?? user.linkedOwnerId,
-                }),
-                timestamp: p.date,
-                amount: p.amount,
-                tenantId: p.tenantId,
-                propertyId: p.propertyId,
-              }));
-            })
-          )
-        ),
-            catchError(() => of([]))
-          );
+      return combineLatest([
+        this.paymentService.getByTenant(user.tenantRecordId!),
+        this.maintenanceService.getByTenantRecord(user.tenantRecordId!),
+        this.propertyService.getById(user.linkedPropertyId!),
+      ]).pipe(
+        map(([payments, requests, property]) => {
+          const currency = property?.currency ?? defaultCurrency(user.countryCode);
+          const ownerId = property?.ownerId ?? user.linkedOwnerId;
+
+          const paymentItems: ActivityItem[] = [...payments]
+            .sort((a, b) => paymentRecordedAt(b).getTime() - paymentRecordedAt(a).getTime())
+            .slice(0, 8)
+            .map((p) => ({
+              id: p.id,
+              type: 'payment' as const,
+              message:
+                p.status === 'pending_verification'
+                  ? `Payment reported — ${formatCurrency(p.amount, currency)} (${paymentMethodLabel(p.method)})`
+                  : `Payment ${PAYMENT_STATUS_LABELS[p.status] ?? p.status} — ${formatCurrency(p.amount, currency)}`,
+              detail: paymentRecordedByLabel(p, {
+                viewer: 'tenant',
+                tenantUserId: user.id,
+                ownerId,
+              }),
+              timestamp: paymentRecordedAt(p),
+              amount: p.amount,
+              tenantId: p.tenantId,
+              propertyId: p.propertyId,
+            }));
+
+          const maintenanceItems: ActivityItem[] = [...requests]
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+            .slice(0, 5)
+            .map((r) => ({
+              id: r.id,
+              type: 'maintenance' as const,
+              message: `Maintenance: ${r.title}`,
+              detail: maintenanceReportedByLabel(r, {
+                viewer: 'tenant',
+                tenantUserId: user.id,
+                ownerId,
+              }),
+              statusTone: maintenanceStatusTone(r.status),
+              maintenanceCategory: r.category,
+              timestamp: r.createdAt,
+              propertyId: r.propertyId,
+              tenantId: r.tenantId,
+            }));
+
+          return [...paymentItems, ...maintenanceItems]
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .slice(0, 10);
+        }),
+        catchError(() => of([]))
+      );
         }
 
         return this.propertyService.getByOwner(user.id).pipe(
@@ -227,7 +262,10 @@ export class DashboardService {
             const currencyByProperty = new Map(properties.map((property) => [property.id, property.currency]));
             const fallbackCurrency = defaultCurrency(user.countryCode);
 
-            const paymentItems: ActivityItem[] = payments.slice(0, 8).map((p) => {
+            const paymentItems: ActivityItem[] = [...payments]
+              .sort((a, b) => paymentRecordedAt(b).getTime() - paymentRecordedAt(a).getTime())
+              .slice(0, 8)
+              .map((p) => {
               const currency = currencyByProperty.get(p.propertyId) ?? fallbackCurrency;
               const amountLabel = formatCurrency(p.amount, currency);
               return {
@@ -237,19 +275,26 @@ export class DashboardService {
                   ? `Tenant reported ${amountLabel} via ${paymentMethodLabel(p.method)}`
                   : `Payment recorded — ${amountLabel}`,
                 detail: paymentRecordedByLabel(p, { viewer: 'owner', ownerId: user.id }),
-                timestamp: p.date,
+                timestamp: paymentRecordedAt(p),
                 amount: p.amount,
                 tenantId: p.tenantId,
                 propertyId: p.propertyId,
               };
             });
 
-            const maintenanceItems: ActivityItem[] = requests.slice(0, 5).map((r) => ({
+            const maintenanceItems: ActivityItem[] = [...requests]
+              .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+              .slice(0, 5)
+              .map((r) => ({
               id: r.id,
               type: 'maintenance' as const,
               message: `Maintenance: ${r.title}`,
+              detail: maintenanceReportedByLabel(r, { viewer: 'owner', ownerId: user.id }),
+              statusTone: maintenanceStatusTone(r.status),
+              maintenanceCategory: r.category,
               timestamp: r.createdAt,
               propertyId: r.propertyId,
+              tenantId: r.tenantId,
             }));
 
             return [...paymentItems, ...maintenanceItems]

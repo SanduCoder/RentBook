@@ -15,6 +15,7 @@ import {
   MaintenanceCategory,
   MaintenanceRequest,
   MaintenanceStatus,
+  maintenanceReportedByLabel,
 } from '../../../core/models/maintenance.model';
 import { Icon3dComponent } from '../../../shared/components/icon-3d/icon-3d.component';
 
@@ -144,7 +145,14 @@ export class MaintenanceListComponent implements OnInit {
   subtitleLine(request: MaintenanceWithMeta): string {
     const parts: string[] = [];
     if (request.unitName) parts.push(request.unitName);
-    if (request.displayTenantName) parts.push(`Reported by ${request.displayTenantName}`);
+    const user = this.auth.currentUser();
+    parts.push(
+      maintenanceReportedByLabel(request, {
+        viewer: user && isTenant(user.role) ? 'tenant' : 'owner',
+        ownerId: user?.id,
+        tenantUserId: user?.id,
+      })
+    );
     return parts.join(' • ') || request.propertyName;
   }
 

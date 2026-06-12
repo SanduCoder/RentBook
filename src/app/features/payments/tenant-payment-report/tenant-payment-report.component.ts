@@ -14,7 +14,7 @@ import { ErrorNotificationService } from '../../../core/services/error-notificat
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { TenantService } from '../../../core/services/tenant.service';
-import { PaymentMethod, Payment, PAYMENT_STATUS_LABELS, paymentRecordedByLabel } from '../../../core/models/payment.model';
+import { PaymentMethod, Payment, PAYMENT_STATUS_LABELS, paymentRecordedAt, paymentRecordedByLabel } from '../../../core/models/payment.model';
 import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
 import { isTenancyLinked } from '../../../core/utils/role.utils';
 import { getTenantMonthBalance } from '../../../core/utils/payment-stats.utils';
@@ -60,7 +60,9 @@ export class TenantPaymentReportComponent implements OnInit {
         method.value
       )
     );
-    return mobileMethod ? `${mobileMethod.label} reference or transaction ID` : 'Transaction reference';
+    return mobileMethod
+      ? `${mobileMethod.label} reference or transaction ID (optional)`
+      : 'Transaction reference (optional)';
   });
 
   private tenantCountryCode = signal(DEFAULT_COUNTRY_CODE);
@@ -69,7 +71,7 @@ export class TenantPaymentReportComponent implements OnInit {
     amount: [0, [Validators.required, Validators.min(1)]],
     date: [new Date().toISOString().split('T')[0], Validators.required],
     method: ['cash' as PaymentMethod, Validators.required],
-    reference: ['', Validators.required],
+    reference: [''],
     notes: [''],
   });
 
@@ -139,7 +141,7 @@ export class TenantPaymentReportComponent implements OnInit {
         amount: raw.amount,
         date: new Date(raw.date),
         method: raw.method,
-        reference: raw.reference.trim(),
+        reference: raw.reference.trim() || undefined,
         notes: raw.notes.trim() || undefined,
         recordedBy: user.id,
       });
@@ -165,4 +167,6 @@ export class TenantPaymentReportComponent implements OnInit {
       ownerId: this.landlordId(),
     });
   }
+
+  recordedAt = paymentRecordedAt;
 }

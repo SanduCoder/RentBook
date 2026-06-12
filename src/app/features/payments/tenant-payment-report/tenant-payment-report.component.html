@@ -41,7 +41,7 @@
     </label>
 
     <label>
-      Transaction reference
+      Transaction reference (optional)
       <input
         type="text"
         formControlName="reference"
@@ -87,7 +87,7 @@
               </div>
               <div class="recent-payment-side">
                 <span class="status-badge" [class]="payment.status">{{ statusLabels[payment.status] }}</span>
-                <time>{{ payment.date | date: 'MMM d, yyyy' }}</time>
+                <time>{{ recordedAt(payment) | date: 'MMM d, yyyy · h:mm a' }}</time>
               </div>
             </div>
           </li>

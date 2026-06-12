@@ -1,18 +1,55 @@
 import { Timestamp } from 'firebase/firestore';
 import { localeForCurrency } from '../config/country-profiles.config';
 
-export function toDate(value: unknown, fallback?: unknown): Date {
+function tryParseDate(value: unknown): Date | null {
+  if (value == null) {
+    return null;
+  }
   if (value instanceof Timestamp) {
     return value.toDate();
   }
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
     return value;
   }
+  if (typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    const parsed = value.toDate();
+    if (parsed instanceof Date && !Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  if (typeof value === 'object') {
+    const seconds =
+      'seconds' in value && typeof value.seconds === 'number'
+        ? value.seconds
+        : '_seconds' in value && typeof value._seconds === 'number'
+          ? value._seconds
+          : null;
+    if (seconds != null) {
+      const nanoseconds =
+        'nanoseconds' in value && typeof value.nanoseconds === 'number'
+          ? value.nanoseconds
+          : '_nanoseconds' in value && typeof value._nanoseconds === 'number'
+            ? value._nanoseconds
+            : 0;
+      const parsed = new Date(seconds * 1000 + nanoseconds / 1_000_000);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+  }
   if (typeof value === 'string' || typeof value === 'number') {
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) {
       return parsed;
     }
+  }
+  return null;
+}
+
+export function toDate(value: unknown, fallback?: unknown): Date {
+  const parsed = tryParseDate(value);
+  if (parsed) {
+    return parsed;
   }
   if (fallback !== undefined) {
     return toDate(fallback);

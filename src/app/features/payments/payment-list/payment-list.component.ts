@@ -13,6 +13,7 @@ import {
   PAYMENT_STATUS_LABELS,
   Payment,
   PaymentStatus,
+  paymentRecordedAt,
   paymentRecordedByLabel,
 } from '../../../core/models/payment.model';
 import { PaymentService } from '../../../core/services/payment.service';
@@ -48,6 +49,7 @@ export class PaymentListComponent implements OnInit {
   statusLabels = PAYMENT_STATUS_LABELS;
   actionPaymentId = signal<string | null>(null);
   paymentDomId = (id: string) => listItemDomId('payment', id);
+  recordedAt = paymentRecordedAt;
 
   payments$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '').pipe(
     switchMap((properties) => {

@@ -19,7 +19,7 @@ import { normalizePhone } from '../../../core/utils/phone.utils';
 import { TenantRentStatusInfo, getTenantRentStatus } from '../../../core/utils/tenant-status.utils';
 import { getTenantMonthBalance, TenantMonthBalance } from '../../../core/utils/payment-stats.utils';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
-import { PAYMENT_METHOD_LABELS, paymentRecordedByLabel } from '../../../core/models/payment.model';
+import { PAYMENT_METHOD_LABELS, paymentRecordedAt, paymentRecordedByLabel } from '../../../core/models/payment.model';
 
 interface TenantDetailData {
   tenant: Tenant;
@@ -59,6 +59,7 @@ export class TenantDetailComponent {
 
   methodLabels = PAYMENT_METHOD_LABELS;
   propertyTypeLabels = PROPERTY_TYPE_LABELS;
+  recordedAt = paymentRecordedAt;
 
   locationLabel(address: string): string {
     const parts = address.split(',').map((p) => p.trim()).filter(Boolean);

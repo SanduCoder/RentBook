@@ -14,10 +14,10 @@ import {
   where,
 } from '@angular/fire/firestore';
 import { Observable, map, of } from 'rxjs';
-import { Payment, PaymentMethod, PaymentStatus } from '../models/payment.model';
+import { Payment, PaymentMethod, PaymentStatus, paymentRecordedAt } from '../models/payment.model';
 import { observeCollection, observeQuery } from '../utils/firestore-observable';
 import { observeByPropertyIds } from '../utils/property-query.utils';
-import { ensureAppCheckReady } from '../utils/app-check.utils';
+import { ensureAppCheckReady, ensureAppCheckToken } from '../utils/app-check.utils';
 import { stripUndefined, toDate } from '../utils/firestore.utils';
 
 export interface CreatePaymentDto {
@@ -92,6 +92,7 @@ export class PaymentService {
 
   async reportPayment(data: ReportPaymentDto): Promise<string> {
     await ensureAppCheckReady(this.appCheck ?? null);
+    await ensureAppCheckToken(this.appCheck ?? null);
     return this.create({
       ...data,
       status: 'pending_verification',
@@ -114,7 +115,7 @@ export class PaymentService {
   private normalizePayments(items: Payment[]): Payment[] {
     return items
       .map((item) => this.normalizePayment(item))
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
+      .sort((a, b) => paymentRecordedAt(b).getTime() - paymentRecordedAt(a).getTime());
   }
 
   private normalizePayment(item: Payment): Payment {

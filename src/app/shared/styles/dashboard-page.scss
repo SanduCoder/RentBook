@@ -581,12 +581,19 @@
     height: 1.125rem;
   }
   
-  .activity-status.info .dot,
   .activity-status.warning .dot {
     width: 0.5rem;
     height: 0.5rem;
     background: #f97316;
     border-radius: 50%;
+    display: block;
+  }
+
+  .activity-status.info .half-circle {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    background: conic-gradient(#3182ce 0deg 180deg, #dbeafe 180deg 360deg);
     display: block;
   }
   
