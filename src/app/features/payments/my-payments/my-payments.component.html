@@ -28,7 +28,7 @@
       } @else {
         <ul class="item-list">
           @for (payment of data.items; track payment.id) {
-            <li>
+            <li [id]="paymentDomId(payment.id)">
               <article class="record-card">
                 <div class="card-header">
                   <div class="card-head-text">

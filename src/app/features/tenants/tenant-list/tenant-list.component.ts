@@ -276,7 +276,7 @@ export class TenantListComponent {
         item.rentStatus,
         { id: user.id, name: user.name?.trim() || 'Your landlord' }
       );
-      this.notifications.success('Reminder saved in RentBook and sent via WhatsApp.');
+      this.notifications.success('Reminder saved in RentBook');
     } catch {
       this.notifications.show('Could not send reminder. Try again.');
     }

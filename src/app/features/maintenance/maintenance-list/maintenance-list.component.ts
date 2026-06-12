@@ -1,8 +1,9 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
-import { combineLatest, map, of, switchMap } from 'rxjs';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { combineLatest, filter, map, of, switchMap, take } from 'rxjs';
+import { listItemDomId, scrollToListItem } from '../../../core/utils/list-focus.utils';
 import { AuthService } from '../../../core/services/auth.service';
 import { ErrorNotificationService } from '../../../core/services/error-notification.service';
 import { MaintenanceService } from '../../../core/services/maintenance.service';
@@ -32,16 +33,20 @@ type StatusFilter = MaintenanceStatus;
   templateUrl: './maintenance-list.component.html',
   styleUrl: './maintenance-list.component.scss',
 })
-export class MaintenanceListComponent {
+export class MaintenanceListComponent implements OnInit {
   private auth = inject(AuthService);
   private notifications = inject(ErrorNotificationService);
   private propertyService = inject(PropertyService);
   private maintenanceService = inject(MaintenanceService);
   private tenantService = inject(TenantService);
   private unitService = inject(UnitService);
+  private route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
 
   filter = signal<StatusFilter>('open');
   updating = signal<string | null>(null);
+  highlightedId = signal<string | null>(null);
+  requestDomId = (id: string) => listItemDomId('maintenance-request', id);
 
   tabs: { id: StatusFilter; label: string }[] = [
     { id: 'open', label: 'Open' },
@@ -100,6 +105,29 @@ export class MaintenanceListComponent {
       );
     })
   );
+
+  ngOnInit(): void {
+    this.route.queryParamMap
+      .pipe(
+        map((params) => params.get('id')),
+        filter((id): id is string => !!id),
+        switchMap((id) =>
+          this.requests$.pipe(
+            filter((requests) => requests.some((request) => request.id === id)),
+            take(1),
+            map((requests) => ({ id, request: requests.find((request) => request.id === id)! }))
+          )
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(({ id, request }) => {
+        this.highlightedId.set(id);
+        if (request.status !== this.filter()) {
+          this.filter.set(request.status);
+        }
+        window.setTimeout(() => scrollToListItem(this.requestDomId(id)), 0);
+      });
+  }
 
   setFilter(value: StatusFilter): void {
     this.filter.set(value);

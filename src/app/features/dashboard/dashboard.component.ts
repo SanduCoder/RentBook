@@ -142,13 +142,21 @@ export class DashboardComponent {
   }
 
   collectedTrendLabel(stats: DashboardStats): string {
+    if (!stats.expectedMonthlyRent) {
+      if (stats.pendingPaymentReports > 0) {
+        return 'incl. pending verification';
+      }
+      return stats.collectedThisMonth === 0 ? 'No payments received' : 'No expected rent set';
+    }
+
+    const progress = this.collectionProgress(stats);
+    const base = `${progress}% of expected rent`;
+
     if (stats.pendingPaymentReports > 0) {
-      return 'incl. pending verification';
+      return `${base} · incl. pending verification`;
     }
-    if (stats.collectedThisMonth === 0) {
-      return 'No payments received';
-    }
-    return this.trendLabel(stats.collectedTrend);
+
+    return base;
   }
 
   trendLabel(value: number): string {
@@ -171,7 +179,7 @@ export class DashboardComponent {
         id: user.id,
         name: user.name?.trim() || 'Your landlord',
       });
-      this.notifications.success('Reminder saved in RentBook and sent via WhatsApp.');
+      this.notifications.success('Reminder saved in RentBook');
     } catch {
       this.notifications.show('Could not send reminder. Try again.');
     }

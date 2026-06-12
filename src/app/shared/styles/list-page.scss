@@ -339,6 +339,10 @@
   border: 1px solid #edf2f7;
 }
 
+li.list-item-focused .record-card {
+  box-shadow: 0 0 0 2px #3b82f6, 0 8px 24px rgba(59, 130, 246, 0.15);
+}
+
 @media (max-width: 380px) {
   .stat-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));

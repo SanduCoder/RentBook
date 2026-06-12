@@ -19,6 +19,7 @@ export interface RentTenant {
   unitId: string;
   monthlyRent: number;
   dueDay: number;
+  moveInDate: Date;
   active?: boolean;
 }
 
@@ -118,6 +119,13 @@ export function sumConfirmedCollected(
     .reduce((sum, p) => sum + p.amount, 0);
 }
 
+/** Monthly list rent not being collected from vacant units. */
+export function calculateVacantRentLoss(units: RentUnit[]): number {
+  return units
+    .filter((unit) => unit.status === 'vacant')
+    .reduce((sum, unit) => sum + unit.monthlyRent, 0);
+}
+
 /**
  * Expected rent this month:
  * - occupied units → tenant contract rent (what they actually owe)
@@ -197,26 +205,83 @@ export function calculateMonthlyDiscount(
   return { totalDiscount, listedRent, quotedRent, discountedTenants };
 }
 
-/** Past-due rent only — occupied tenants past due day who still owe money. */
+/** Rent credits for a tenant across their full tenancy (not limited to one month). */
+export function sumAllRentCredits(
+  payments: Payment[],
+  options?: { tenantId?: string; propertyId?: string }
+): number {
+  return payments
+    .filter(
+      (p) =>
+        isRentCreditPayment(p) &&
+        (!options?.tenantId || p.tenantId === options.tenantId) &&
+        (!options?.propertyId || p.propertyId === options.propertyId)
+    )
+    .reduce((sum, p) => sum + p.amount, 0);
+}
+
+/**
+ * Inclusive count of rent months owed since move-in through the latest due period.
+ * Current month counts only after the tenant's due day (pay-ahead model).
+ */
+export function countDueRentMonths(moveInDate: Date, dueDay: number, now = new Date()): number {
+  const moveIn = new Date(moveInDate);
+  if (Number.isNaN(moveIn.getTime())) {
+    return 0;
+  }
+
+  const startYear = moveIn.getFullYear();
+  const startMonth = moveIn.getMonth();
+
+  let lastDueYear = now.getFullYear();
+  let lastDueMonth = now.getMonth();
+  if (now.getDate() < dueDay) {
+    lastDueMonth -= 1;
+    if (lastDueMonth < 0) {
+      lastDueMonth = 11;
+      lastDueYear -= 1;
+    }
+  }
+
+  if (lastDueYear < startYear || (lastDueYear === startYear && lastDueMonth < startMonth)) {
+    return 0;
+  }
+
+  return (lastDueYear - startYear) * 12 + (lastDueMonth - startMonth) + 1;
+}
+
+/** Lifetime rent still owed for one tenant: total due since move-in minus all credits. */
+export function calculateTenantOutstandingRent(
+  tenant: RentTenant,
+  payments: Payment[],
+  now = new Date()
+): number {
+  if (tenant.active === false) {
+    return 0;
+  }
+
+  const dueMonths = countDueRentMonths(tenant.moveInDate, tenant.dueDay, now);
+  if (dueMonths === 0) {
+    return 0;
+  }
+
+  const totalDue = dueMonths * tenant.monthlyRent;
+  const totalPaid = sumAllRentCredits(payments, { tenantId: tenant.id });
+  return Math.max(0, totalDue - totalPaid);
+}
+
+/** Rolled-up arrears across active tenants since each tenant's move-in date. */
 export function calculateOutstandingRent(
   tenants: RentTenant[],
   payments: Payment[],
   now = new Date()
 ): number {
-  const monthStart = getMonthStart(now);
-
   return tenants
     .filter((tenant) => tenant.active !== false)
-    .reduce((total, tenant) => {
-      const credited = sumRentCredits(payments, { tenantId: tenant.id, monthStart, now });
-      const pastDue = now.getDate() >= tenant.dueDay;
-
-      if (pastDue && credited < tenant.monthlyRent) {
-        return total + (tenant.monthlyRent - credited);
-      }
-
-      return total;
-    }, 0);
+    .reduce(
+      (total, tenant) => total + calculateTenantOutstandingRent(tenant, payments, now),
+      0
+    );
 }
 
 export function countPendingPaymentReports(payments: Payment[]): number {

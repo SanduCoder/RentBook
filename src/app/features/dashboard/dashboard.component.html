@@ -88,6 +88,9 @@
       >
         <p>
           <strong>{{ stats.vacantUnits }} vacant unit{{ stats.vacantUnits === 1 ? '' : 's' }}</strong>
+          @if (stats.vacantRentLoss > 0) {
+            — losing {{ stats.vacantRentLoss | currencyFormat: stats.currency }}/month
+          }
           — share your invite code on WhatsApp to fill them.
         </p>
         <span class="invite-banner-action">Share invite</span>
@@ -105,19 +108,33 @@
         }
 
       <div class="stats-grid">
-        <div class="metric-card metric-expected metric-wide">
+        <div class="metric-card metric-expected">
           <div class="metric-head">
             <span class="metric-icon"><app-icon-3d name="bills" /></span>
             <span class="metric-label">Expected Rent</span>
           </div>
           <span class="metric-value">{{ stats.expectedMonthlyRent | currencyFormat: stats.currency }}</span>
-          <span class="metric-trend">Total due from tenants this month</span>
+          <span class="metric-trend">rent if all units are occupied</span>
+        </div>
+
+        <div class="metric-card metric-collected">
+          <div class="metric-head">
+            <span class="metric-icon"><app-icon-3d name="collected" /></span>
+            <span class="metric-label">Collected This Month</span>
+          </div>
+          <span class="metric-value">{{ stats.collectedThisMonth | currencyFormat: stats.currency }}</span>
+          <span
+            class="metric-trend"
+            [class.trend-up]="stats.expectedMonthlyRent > 0 && collectionProgress(stats) >= 100"
+            [class.trend-down]="stats.expectedMonthlyRent > 0 && collectionProgress(stats) < 100 && stats.collectedThisMonth === 0"
+          >
+            {{ collectedTrendLabel(stats) }}
+          </span>
         </div>
 
         <div
           class="metric-card metric-outstanding"
           [class.metric-outstanding-alert]="stats.outstandingRent > 0"
-          [class.metric-wide]="stats.outstandingRent > 0"
         >
           <div class="metric-head">
             <span class="metric-icon"><app-icon-3d name="outstanding" /></span>
@@ -132,26 +149,26 @@
           <span class="metric-value">{{ stats.outstandingRent | currencyFormat: stats.currency }}</span>
           <span class="metric-trend">
             @if (stats.outstandingRent > 0) {
-              Unpaid from previous months — follow up with tenants
+              unpaid balances
             } @else {
-              All caught up on past-due rent
+              All tenants caught up on rent
             }
           </span>
         </div>
 
-        <div class="metric-card metric-collected">
+        <div class="metric-card metric-vacant">
           <div class="metric-head">
-            <span class="metric-icon"><app-icon-3d name="collected" /></span>
-            <span class="metric-label">Collected</span>
+            <span class="metric-icon"><app-icon-3d name="properties" /></span>
+            <span class="metric-label">Vacant Units</span>
           </div>
-          <span class="metric-value">{{ stats.collectedThisMonth | currencyFormat: stats.currency }}</span>
-          <span class="metric-trend" [class.trend-up]="stats.collectedThisMonth > 0 && stats.collectedTrend > 0" [class.trend-down]="stats.collectedTrend < 0">
-            {{ collectedTrendLabel(stats) }}
-          </span>
+          <span class="metric-value">{{ stats.vacantUnits }}</span>
+          @if (stats.vacantRentLoss > 0) {
+            <span class="metric-trend">Losing {{ stats.vacantRentLoss | currencyFormat: stats.currency }}/month</span>
+          }
         </div>
 
         @if (stats.rentDue.nearest; as due) {
-          <div class="metric-card metric-rent-due metric-wide">
+          <div class="metric-card metric-rent-due">
             <div class="metric-head">
               <span class="metric-icon"><app-icon-3d name="pending" /></span>
               <span class="metric-label">Next Rent Due</span>
@@ -190,14 +207,16 @@
           <span class="metric-trend">{{ stats.occupancyRate }}% occupancy</span>
         </div>
 
-        <div class="metric-card metric-pending">
+        <a routerLink="/requests" class="metric-card metric-pending">
           <div class="metric-head">
             <span class="metric-icon"><app-icon-3d name="pending" /></span>
-            <span class="metric-label">Pending Requests</span>
+            <span class="metric-label">Maintenance</span>
           </div>
-          <span class="metric-value">{{ stats.pendingRequests }}</span>
-          <span class="metric-trend">Needs your action</span>
-        </div>
+          <span class="metric-value">
+            {{ stats.pendingRequests }}
+            <span class="metric-value-suffix">Open Requests</span>
+          </span>
+        </a>
 
         <div class="metric-card metric-discount">
           <div class="metric-head">
@@ -270,7 +289,12 @@
         <ul class="activity-list">
           @for (item of activities; track item.id) {
             <li>
-              <a [routerLink]="activityLink(item, { isTenant: !canManage() })" class="activity-link">
+              @let route = activityLink(item, { isTenant: !canManage() });
+              <a
+                [routerLink]="route.commands"
+                [queryParams]="route.queryParams ?? null"
+                class="activity-link"
+              >
                 <span class="activity-icon" [class]="activityStatus(item)">
                   {{ activityIcon(item) }}
                 </span>

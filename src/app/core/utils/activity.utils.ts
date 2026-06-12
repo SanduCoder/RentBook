@@ -9,17 +9,33 @@ export interface PropertyActivity {
   tenantId?: string;
 }
 
+export interface ActivityRouteLink {
+  commands: string[];
+  queryParams?: Record<string, string>;
+}
+
 export function dashboardActivityLink(
   item: ActivityItem,
   options?: { isTenant?: boolean }
-): string[] {
-  if (item.type === 'maintenance') return ['/requests'];
-  if (options?.isTenant) return ['/my-payments'];
-  if (item.tenantId) return ['/tenants', item.tenantId];
-  return ['/payments'];
+): ActivityRouteLink {
+  if (item.type === 'maintenance') {
+    return { commands: ['/requests'], queryParams: { id: item.id } };
+  }
+
+  if (item.type === 'overdue' && item.tenantId) {
+    return { commands: ['/tenants', item.tenantId] };
+  }
+
+  if (item.type === 'payment') {
+    if (options?.isTenant) {
+      return { commands: ['/my-payments'], queryParams: { id: item.id } };
+    }
+    return { commands: ['/payments'], queryParams: { id: item.id } };
+  }
+
+  return { commands: ['/payments'] };
 }
 
-export function propertyActivityLink(item: PropertyActivity): string[] {
-  if (item.tenantId) return ['/tenants', item.tenantId];
-  return ['/payments'];
+export function propertyActivityLink(item: PropertyActivity): ActivityRouteLink {
+  return { commands: ['/payments'], queryParams: { id: item.id } };
 }

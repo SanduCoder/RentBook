@@ -1,7 +1,9 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { catchError, filter, map, of, switchMap, take } from 'rxjs';
+import { listItemDomId, scrollToListItem } from '../../../core/utils/list-focus.utils';
 import { AuthService } from '../../../core/services/auth.service';
 import {
   PAYMENT_METHOD_LABELS,
@@ -32,13 +34,16 @@ interface MyPaymentsData {
   templateUrl: './my-payments.component.html',
   styleUrl: './my-payments.component.scss',
 })
-export class MyPaymentsComponent {
+export class MyPaymentsComponent implements OnInit {
   private auth = inject(AuthService);
   private paymentService = inject(PaymentService);
   private propertyService = inject(PropertyService);
+  private route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
 
   methodLabels = PAYMENT_METHOD_LABELS;
   statusLabels = PAYMENT_STATUS_LABELS;
+  paymentDomId = (id: string) => listItemDomId('payment', id);
 
   payments$ = of(this.auth.currentUser()).pipe(
     switchMap((user) => {
@@ -60,6 +65,23 @@ export class MyPaymentsComponent {
       );
     })
   );
+
+  ngOnInit(): void {
+    this.route.queryParamMap
+      .pipe(
+        map((params) => params.get('id')),
+        filter((id): id is string => !!id),
+        switchMap((id) =>
+          this.payments$.pipe(
+            filter((data) => data.items.some((payment) => payment.id === id)),
+            take(1),
+            map(() => id)
+          )
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((id) => scrollToListItem(this.paymentDomId(id)));
+  }
 
   pendingCount(items: Payment[]): number {
     return items.filter((p) => p.status === 'pending_verification').length;

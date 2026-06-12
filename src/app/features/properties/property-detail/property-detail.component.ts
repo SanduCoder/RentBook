@@ -35,6 +35,7 @@ import {
   calculateExpectedMonthlyRent,
   calculateMonthlyDiscount,
   calculateOutstandingRent,
+  calculateVacantRentLoss,
   sumRentCredits,
 } from '../../../core/utils/payment-stats.utils';
 import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
@@ -64,6 +65,7 @@ interface PropertyOverview {
   outstandingRent: number;
   occupiedUnits: number;
   vacantUnits: number;
+  vacantRentLoss: number;
   totalUnits: number;
   occupancyRate: number;
   openMaintenance: number;
@@ -163,6 +165,7 @@ export class PropertyDetailComponent implements OnInit {
             outstandingRent: calculateOutstandingRent(tenants, payments),
             occupiedUnits,
             vacantUnits,
+            vacantRentLoss: calculateVacantRentLoss(units),
             totalUnits,
             occupancyRate: totalUnits ? Math.round((occupiedUnits / totalUnits) * 100) : 0,
             openMaintenance: requests.filter((r) => r.status !== 'completed').length,
@@ -181,6 +184,7 @@ export class PropertyDetailComponent implements OnInit {
             outstandingRent: 0,
             occupiedUnits: 0,
             vacantUnits: 0,
+            vacantRentLoss: 0,
             totalUnits: 0,
             occupancyRate: 0,
             openMaintenance: 0,
@@ -402,7 +406,7 @@ export class PropertyDetailComponent implements OnInit {
         id: user.id,
         name: user.name?.trim() || 'Your landlord',
       });
-      this.notifications.success('Reminder saved in RentBook and sent via WhatsApp.');
+      this.notifications.success('Reminder saved in RentBook');
     } catch {
       this.notifications.show('Could not send reminder. Try again.');
     }

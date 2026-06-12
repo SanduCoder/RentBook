@@ -83,20 +83,19 @@
 
           @if (overview$ | async; as stats) {
             <div class="stats-grid">
-              <div class="metric-card metric-expected metric-wide">
+              <div class="metric-card metric-expected">
                 <span class="metric-label">Expected Rent</span>
                 <span class="metric-value">{{ stats.expectedMonthlyRent | currencyFormat: stats.currency }}</span>
-                <span class="metric-sub">Total due from tenants this month</span>
+                <span class="metric-sub">rent if all units are occupied</span>
               </div>
               <div class="metric-card metric-collected">
-                <span class="metric-label">Collected</span>
+                <span class="metric-label">Collected This Month</span>
                 <span class="metric-value">{{ stats.collectedThisMonth | currencyFormat: stats.currency }}</span>
                 <span class="metric-sub">Received this month</span>
               </div>
               <div
                 class="metric-card metric-outstanding"
                 [class.metric-outstanding-alert]="stats.outstandingRent > 0"
-                [class.metric-wide]="stats.outstandingRent > 0"
               >
                 <span class="metric-label">
                   @if (stats.outstandingRent > 0) {
@@ -108,14 +107,14 @@
                 <span class="metric-value">{{ stats.outstandingRent | currencyFormat: stats.currency }}</span>
                 <span class="metric-sub">
                   @if (stats.outstandingRent > 0) {
-                    Unpaid from previous months
+                    unpaid balances
                   } @else {
-                    All caught up on past-due rent
+                    All tenants caught up on rent
                   }
                 </span>
               </div>
               @if (stats.rentDue.nearest; as due) {
-                <div class="metric-card metric-rent-due metric-wide">
+                <div class="metric-card metric-rent-due">
                   <span class="metric-label">Next Rent Due</span>
                   <span class="metric-value">{{ due.unitName }}</span>
                   <span class="metric-sub">
@@ -149,6 +148,9 @@
               <div class="metric-card metric-vacant">
                 <span class="metric-label">Vacant Rooms</span>
                 <span class="metric-value">{{ stats.vacantUnits }}</span>
+                @if (stats.vacantRentLoss > 0) {
+                  <span class="metric-sub">Losing {{ stats.vacantRentLoss | currencyFormat: stats.currency }}/month</span>
+                }
               </div>
               <div class="metric-card metric-discount">
                 <span class="metric-label">Rent Discounts</span>
@@ -162,7 +164,7 @@
                   }
                 </span>
               </div>
-              <a routerLink="/requests" class="metric-card metric-maintenance metric-wide">
+              <a routerLink="/requests" class="metric-card metric-maintenance">
                 <span class="metric-label">Maintenance</span>
                 <span class="metric-value">{{ stats.openMaintenance }} Open</span>
               </a>
@@ -188,7 +190,12 @@
               <ul class="activity-list">
                 @for (item of activities; track item.id) {
                   <li>
-                    <a [routerLink]="activityLink(item)" class="activity-link">
+                    @let route = activityLink(item);
+                    <a
+                      [routerLink]="route.commands"
+                      [queryParams]="route.queryParams ?? null"
+                      class="activity-link"
+                    >
                       <span class="activity-icon">👤</span>
                       <div class="activity-content">
                         <p>{{ item.message }}</p>

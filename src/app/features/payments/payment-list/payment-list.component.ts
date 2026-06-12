@@ -1,7 +1,9 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { map, switchMap } from 'rxjs';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { filter, map, switchMap, take } from 'rxjs';
+import { listItemDomId, scrollToListItem } from '../../../core/utils/list-focus.utils';
 import { AuthService } from '../../../core/services/auth.service';
 import { ErrorNotificationService } from '../../../core/services/error-notification.service';
 import {
@@ -28,15 +30,18 @@ interface PaymentListData {
   templateUrl: './payment-list.component.html',
   styleUrl: './payment-list.component.scss',
 })
-export class PaymentListComponent {
+export class PaymentListComponent implements OnInit {
   private auth = inject(AuthService);
   private propertyService = inject(PropertyService);
   private paymentService = inject(PaymentService);
   private notifications = inject(ErrorNotificationService);
+  private route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
 
   methodLabels = PAYMENT_METHOD_LABELS;
   statusLabels = PAYMENT_STATUS_LABELS;
   actionPaymentId = signal<string | null>(null);
+  paymentDomId = (id: string) => listItemDomId('payment', id);
 
   payments$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '').pipe(
     switchMap((properties) => {
@@ -46,6 +51,23 @@ export class PaymentListComponent {
       );
     })
   );
+
+  ngOnInit(): void {
+    this.route.queryParamMap
+      .pipe(
+        map((params) => params.get('id')),
+        filter((id): id is string => !!id),
+        switchMap((id) =>
+          this.payments$.pipe(
+            filter((data) => data.items.some((payment) => payment.id === id)),
+            take(1),
+            map(() => id)
+          )
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((id) => scrollToListItem(this.paymentDomId(id)));
+  }
 
   totalAmount(data: PaymentListData): number {
     return data.items.reduce((sum, payment) => sum + payment.amount, 0);

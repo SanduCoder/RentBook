@@ -74,7 +74,7 @@
       } @else {
         <ul class="request-list">
           @for (request of filteredRequests(requests); track request.id) {
-            <li>
+            <li [id]="requestDomId(request.id)">
               <article class="request-card">
                 <div class="card-header">
                   <div class="request-thumb" [class]="'thumb-' + request.category">

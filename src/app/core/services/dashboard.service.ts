@@ -13,6 +13,7 @@ import {
   calculateExpectedMonthlyRent,
   calculateMonthlyDiscount,
   calculateOutstandingRent,
+  calculateVacantRentLoss,
   countPendingPaymentReports,
   sumConfirmedCollected,
   sumRentCredits,
@@ -26,6 +27,7 @@ export interface DashboardStats {
   outstandingRent: number;
   occupiedUnits: number;
   vacantUnits: number;
+  vacantRentLoss: number;
   totalUnits: number;
   occupancyRate: number;
   pendingRequests: number;
@@ -141,6 +143,7 @@ export class DashboardService {
               outstandingRent,
               occupiedUnits,
               vacantUnits: units.filter((u) => u.status === 'vacant').length,
+              vacantRentLoss: calculateVacantRentLoss(units),
               totalUnits,
               occupancyRate: totalUnits ? Math.round((occupiedUnits / totalUnits) * 100) : 0,
               pendingRequests,
@@ -235,6 +238,7 @@ export class DashboardService {
       outstandingRent: 0,
       occupiedUnits: 0,
       vacantUnits: 0,
+      vacantRentLoss: 0,
       totalUnits: 0,
       occupancyRate: 0,
       pendingRequests: 0,
