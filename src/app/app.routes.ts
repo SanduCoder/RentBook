@@ -176,6 +176,11 @@ export const routes: Routes = [
           import('./features/account/account.component').then((m) => m.AccountComponent),
       },
       {
+        path: 'help',
+        loadComponent: () =>
+          import('./features/help/help-support.component').then((m) => m.HelpSupportComponent),
+      },
+      {
         path: 'join',
         loadComponent: () =>
           import('./features/auth/join/join.component').then((m) => m.JoinComponent),

@@ -17,6 +17,7 @@ export type Icon3dName =
   | 'outstanding'
   | 'occupancy'
   | 'pending'
+  | 'help'
   | 'profile-scene';
 
 let iconId = 0;
@@ -254,6 +255,24 @@ let iconId = 0;
             <rect x="196" y="220" width="120" height="14" rx="7" fill="#D8F1E4" />
             <rect x="196" y="252" width="96" height="14" rx="7" fill="#D8F1E4" />
             <rect x="196" y="284" width="108" height="14" rx="7" fill="#D8F1E4" />
+          </g>
+        }
+        @case ('help') {
+          <circle cx="256" cy="256" r="180" [attr.fill]="'url(#' + gid('bg') + ')'" />
+          <g [attr.filter]="'url(#' + gid('shadow') + ')'">
+            <circle cx="256" cy="248" r="92" [attr.fill]="'url(#' + gid('blue') + ')'" />
+            <circle cx="256" cy="248" r="72" fill="#fff" opacity="0.2" />
+            <text
+              x="256"
+              y="282"
+              text-anchor="middle"
+              font-size="108"
+              font-weight="700"
+              font-family="system-ui, sans-serif"
+              fill="#fff"
+            >
+              ?
+            </text>
           </g>
         }
         @case ('profile-scene') {

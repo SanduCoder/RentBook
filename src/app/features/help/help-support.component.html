@@ -1,0 +1,42 @@
+<div class="help-page">
+  <header class="page-header-bar">
+    <a href="#" class="icon-btn" aria-label="Back" (click)="goBack($event)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 18l-6-6 6-6" />
+      </svg>
+    </a>
+    <h1>Help &amp; Support</h1>
+    <span class="icon-spacer" aria-hidden="true"></span>
+  </header>
+
+  <div class="help-content">
+    <section class="help-intro">
+      <h2>How to use RentBook</h2>
+      <p>
+        Guides for each screen and common tasks. Tap a topic to expand step-by-step instructions.
+        Use the back button above to return to where you were.
+      </p>
+    </section>
+
+    <div class="help-topics">
+      @for (topic of topics(); track topic.id) {
+        <details class="help-topic">
+          <summary>
+            <span class="help-topic-title">{{ topic.title }}</span>
+            <span class="help-topic-summary">{{ topic.summary }}</span>
+          </summary>
+          <ol class="help-steps">
+            @for (step of topic.steps; track step) {
+              <li>{{ step }}</li>
+            }
+          </ol>
+        </details>
+      }
+    </div>
+
+    <section class="help-footer">
+      <p>Need more help? Contact your property manager or landlord directly for account-specific questions.</p>
+      <p class="help-version">RentBook v1.1 — Phase 2</p>
+    </section>
+  </div>
+</div>
