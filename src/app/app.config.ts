@@ -44,7 +44,8 @@ function createFirestore() {
 }
 
 const appCheckSiteKey = environment.appCheckRecaptchaSiteKey?.trim() ?? '';
-const shouldInitAppCheck = !!appCheckSiteKey;
+/** App Check is optional for reads; only enable in production to avoid blocking local dev. */
+const shouldInitAppCheck = !!appCheckSiteKey && environment.production;
 
 function createAppCheck() {
   return initializeAppCheck(getApp(), {
@@ -64,9 +65,11 @@ const appCheckBootstrapProviders = shouldInitAppCheck
         multi: true,
         useFactory: () => {
           const appCheck = inject(AppCheck, { optional: true });
-          return async () => {
-            await preloadRecaptcha(appCheckSiteKey);
-            await ensureAppCheckReady(appCheck ?? null);
+          // Warm up in the background — never block first paint on reCAPTCHA/App Check.
+          return () => {
+            void preloadRecaptcha(appCheckSiteKey)
+              .then(() => ensureAppCheckReady(appCheck ?? null))
+              .catch(() => undefined);
           };
         },
       },

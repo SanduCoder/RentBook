@@ -1,7 +1,7 @@
 import { AppCheck, getToken } from 'firebase/app-check';
 
 const TOKEN_RETRY_MS = 500;
-const TOKEN_TIMEOUT_MS = 10000;
+const TOKEN_TIMEOUT_MS = 5000;
 
 /** Wait until App Check can mint a token (needed before Auth/Firestore on enforced projects). */
 export async function ensureAppCheckReady(appCheck: AppCheck | null): Promise<void> {
