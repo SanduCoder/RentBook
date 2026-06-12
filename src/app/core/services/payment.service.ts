@@ -65,6 +65,13 @@ export class PaymentService {
     ).pipe(map((items) => this.normalizePayments(items)));
   }
 
+  /** Landlord view — query by propertyId (allowed by rules), then filter to tenant. */
+  getByTenantAtProperty(tenantId: string, propertyId: string): Observable<Payment[]> {
+    return this.getByProperty(propertyId).pipe(
+      map((items) => items.filter((p) => p.tenantId === tenantId))
+    );
+  }
+
   getByOwnerProperties(propertyIds: string[]): Observable<Payment[]> {
     return observeByPropertyIds<Payment>(this.injector, this.collection, propertyIds).pipe(
       map((items) => this.normalizePayments(items))

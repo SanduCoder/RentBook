@@ -289,3 +289,36 @@ export function countPendingPaymentReports(payments: Payment[]): number {
     (p) => p.status === 'pending_verification' || isPendingTenantReport(p)
   ).length;
 }
+
+export interface TenantMonthBalance {
+  paidThisMonth: number;
+  balanceRemaining: number;
+  pendingAmount: number;
+}
+
+/** Rent credited this month vs what is still owed for the current month. */
+export function getTenantMonthBalance(
+  monthlyRent: number,
+  payments: Payment[],
+  options?: { tenantId?: string; now?: Date }
+): TenantMonthBalance {
+  const now = options?.now ?? new Date();
+  const monthStart = getMonthStart(now);
+  const tenantId = options?.tenantId;
+
+  const monthPayments = payments.filter(
+    (p) => !tenantId || p.tenantId === tenantId
+  );
+
+  const paidThisMonth = sumRentCredits(monthPayments, { tenantId, monthStart, now });
+  const balanceRemaining = Math.max(0, monthlyRent - paidThisMonth);
+  const pendingAmount = monthPayments
+    .filter(
+      (p) =>
+        (p.status === 'pending_verification' || isPendingTenantReport(p)) &&
+        paymentAppliesToMonth(p, monthStart, now)
+    )
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  return { paidThisMonth, balanceRemaining, pendingAmount };
+}

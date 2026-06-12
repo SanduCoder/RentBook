@@ -17,8 +17,9 @@ import { UnitService } from '../../../core/services/unit.service';
 import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
 import { normalizePhone } from '../../../core/utils/phone.utils';
 import { TenantRentStatusInfo, getTenantRentStatus } from '../../../core/utils/tenant-status.utils';
+import { getTenantMonthBalance, TenantMonthBalance } from '../../../core/utils/payment-stats.utils';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
-import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
+import { PAYMENT_METHOD_LABELS, paymentRecordedByLabel } from '../../../core/models/payment.model';
 
 interface TenantDetailData {
   tenant: Tenant;
@@ -26,6 +27,7 @@ interface TenantDetailData {
   property?: Property;
   unit?: Unit;
   rentStatus: TenantRentStatusInfo;
+  monthBalance: TenantMonthBalance;
   currency: string;
   countryCode: string;
   unitName: string;
@@ -66,11 +68,9 @@ export class TenantDetailComponent {
   state$ = this.route.paramMap.pipe(
     map((p) => p.get('id')!),
     switchMap((id) =>
-      combineLatest([
-        this.tenantService.getById(id).pipe(catchError(() => of(undefined))),
-        this.paymentService.getByTenant(id).pipe(catchError(() => of([] as Payment[]))),
-      ]).pipe(
-        switchMap(([tenant, payments]) => {
+      this.tenantService.getById(id).pipe(
+        catchError(() => of(undefined)),
+        switchMap((tenant) => {
           if (!tenant) {
             return of({ status: 'missing' } satisfies TenantDetailState);
           }
@@ -78,8 +78,11 @@ export class TenantDetailComponent {
           return combineLatest([
             this.propertyService.getById(tenant.propertyId).pipe(catchError(() => of(undefined))),
             this.unitService.getById(tenant.unitId).pipe(catchError(() => of(undefined))),
+            this.paymentService.getByTenantAtProperty(tenant.id, tenant.propertyId).pipe(
+              catchError(() => of([] as Payment[]))
+            ),
           ]).pipe(
-            map(([property, unit]) => ({
+            map(([property, unit, payments]) => ({
               status: 'ready',
               data: {
                 tenant,
@@ -87,6 +90,9 @@ export class TenantDetailComponent {
                 property,
                 unit,
                 rentStatus: getTenantRentStatus(tenant, payments),
+                monthBalance: getTenantMonthBalance(tenant.monthlyRent, payments, {
+                  tenantId: tenant.id,
+                }),
                 currency: property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode),
                 countryCode: property
                   ? propertyCountryCode(property)
@@ -129,5 +135,13 @@ export class TenantDetailComponent {
 
   scrollToHistory(): void {
     document.getElementById('payment-history')?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  recordedByLabel(payment: Payment, data: TenantDetailData): string {
+    return paymentRecordedByLabel(payment, {
+      viewer: 'owner',
+      ownerId: this.auth.currentUser()?.id,
+      tenantUserId: data.tenant.userId,
+    });
   }
 }

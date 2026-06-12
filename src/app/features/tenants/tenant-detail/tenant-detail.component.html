@@ -105,6 +105,18 @@
               <span class="label">Monthly Rent</span>
               <span class="value">{{ vm.tenant.monthlyRent | currencyFormat: vm.currency }}</span>
             </div>
+            @if (vm.monthBalance.paidThisMonth > 0) {
+              <div class="info-row">
+                <span class="label">Paid This Month</span>
+                <span class="value">{{ vm.monthBalance.paidThisMonth | currencyFormat: vm.currency }}</span>
+              </div>
+            }
+            @if (vm.monthBalance.balanceRemaining > 0) {
+              <div class="info-row">
+                <span class="label">Due This Month</span>
+                <span class="value outstanding">{{ vm.monthBalance.balanceRemaining | currencyFormat: vm.currency }}</span>
+              </div>
+            }
             <div class="info-row">
               <span class="label">Next Due Date</span>
               <span class="value">{{ vm.rentStatus.dateValue | date: 'MMMM d, yyyy' }}</span>
@@ -164,6 +176,7 @@
                       <span class="meta">
                         {{ methodLabels[payment.method] }} · {{ payment.date | date: 'mediumDate' }}
                       </span>
+                      <span class="recorded-by">{{ recordedByLabel(payment, vm) }}</span>
                     </div>
                     <span class="status" [class]="payment.status">{{ payment.status }}</span>
                   </li>

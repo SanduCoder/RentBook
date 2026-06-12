@@ -305,6 +305,9 @@
                 </span>
                 <div class="activity-content">
                   <p class="activity-text">{{ item.message }}</p>
+                  @if (item.detail) {
+                    <p class="activity-detail">{{ item.detail }}</p>
+                  }
                   <time>{{ item.timestamp | date: 'MMM d, yyyy · h:mm a' }}</time>
                 </div>
                 <span class="activity-status" [class]="activityStatus(item)">

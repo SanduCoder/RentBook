@@ -22,6 +22,7 @@ import {
   TenantRentStatusInfo,
   getTenantRentStatus,
 } from '../../../core/utils/tenant-status.utils';
+import { getTenantMonthBalance, TenantMonthBalance } from '../../../core/utils/payment-stats.utils';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 
@@ -32,6 +33,7 @@ interface TenantListItem {
   currency: string;
   countryCode: string;
   rentStatus: TenantRentStatusInfo;
+  monthBalance: TenantMonthBalance;
 }
 
 interface TenantSection {
@@ -43,6 +45,8 @@ interface TenantSection {
 interface CollectionSummary {
   currency: string;
   totalUnpaid: number;
+  totalCollected: number;
+  pendingVerification: number;
   overdueCount: number;
   dueSoonCount: number;
   unpaidCount: number;
@@ -117,6 +121,9 @@ export class TenantListComponent {
               currency: property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode),
               countryCode: property ? propertyCountryCode(property) : this.auth.currentUser()?.countryCode ?? 'GM',
               rentStatus: getTenantRentStatus(tenant, tenantPayments),
+              monthBalance: getTenantMonthBalance(tenant.monthlyRent, tenantPayments, {
+                tenantId: tenant.id,
+              }),
             } satisfies TenantListItem;
           });
         })
@@ -154,7 +161,9 @@ export class TenantListComponent {
     const unpaid = filtered.filter((item) => item.rentStatus.status !== 'paid');
     return {
       currency: filtered[0].currency,
-      totalUnpaid: unpaid.reduce((sum, item) => sum + item.tenant.monthlyRent, 0),
+      totalUnpaid: unpaid.reduce((sum, item) => sum + item.monthBalance.balanceRemaining, 0),
+      totalCollected: filtered.reduce((sum, item) => sum + item.monthBalance.paidThisMonth, 0),
+      pendingVerification: filtered.reduce((sum, item) => sum + item.monthBalance.pendingAmount, 0),
       overdueCount: unpaid.filter((item) => item.rentStatus.status === 'overdue').length,
       dueSoonCount: unpaid.filter((item) => item.rentStatus.status === 'due_soon').length,
       unpaidCount: unpaid.length,

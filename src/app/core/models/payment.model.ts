@@ -70,3 +70,22 @@ export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 export function paymentMethodLabel(method: PaymentMethod | string): string {
   return PAYMENT_METHOD_LABELS[method as PaymentMethod] ?? String(method).replace(/_/g, ' ');
 }
+
+export type PaymentRecordedByViewer = 'owner' | 'tenant';
+
+/** Who logged this payment — tenant report vs landlord record. */
+export function paymentRecordedByLabel(
+  payment: Payment,
+  options?: { viewer?: PaymentRecordedByViewer; ownerId?: string; tenantUserId?: string }
+): string {
+  if (payment.reportedByTenant || payment.status === 'pending_verification') {
+    return 'Reported by tenant';
+  }
+  if (options?.tenantUserId && payment.recordedBy === options.tenantUserId) {
+    return 'Recorded by tenant';
+  }
+  if (options?.ownerId && payment.recordedBy === options.ownerId) {
+    return options.viewer === 'tenant' ? 'Recorded by landlord' : 'Recorded by you';
+  }
+  return 'Recorded by landlord';
+}

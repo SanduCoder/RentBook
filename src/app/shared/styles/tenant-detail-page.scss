@@ -389,6 +389,18 @@
     font-size: 0.8125rem;
     color: var(--text-muted);
   }
+
+  .recorded-by {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .value.outstanding {
+    color: #b91c1c;
+    font-weight: 600;
+  }
   
   .status {
     font-size: 0.75rem;

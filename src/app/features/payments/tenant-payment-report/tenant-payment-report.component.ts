@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -13,16 +14,17 @@ import { ErrorNotificationService } from '../../../core/services/error-notificat
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { TenantService } from '../../../core/services/tenant.service';
-import { PaymentMethod } from '../../../core/models/payment.model';
+import { PaymentMethod, Payment, PAYMENT_STATUS_LABELS, paymentRecordedByLabel } from '../../../core/models/payment.model';
 import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
 import { isTenancyLinked } from '../../../core/utils/role.utils';
+import { getTenantMonthBalance } from '../../../core/utils/payment-stats.utils';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-tenant-payment-report',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, PageHeaderComponent, CurrencyFormatPipe],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, PageHeaderComponent, CurrencyFormatPipe],
   templateUrl: './tenant-payment-report.component.html',
   styleUrl: './tenant-payment-report.component.scss',
 })
@@ -41,8 +43,13 @@ export class TenantPaymentReportComponent implements OnInit {
   referenceNumber = signal('');
   error = signal('');
   monthlyRent = signal(0);
+  paidThisMonth = signal(0);
+  balanceRemaining = signal(0);
   currency = signal(defaultCurrency());
   methods = signal<PaymentMethodOption[]>(this.countryProfiles.paymentMethodsForUser());
+  recentPayments = signal<Payment[]>([]);
+  landlordId = signal<string | undefined>(undefined);
+  statusLabels = PAYMENT_STATUS_LABELS;
 
   pageSubtitle = computed(
     () => `Tell your landlord you paid rent via ${this.countryProfiles.paymentMethodsLabel(this.tenantCountryCode())}`
@@ -77,9 +84,10 @@ export class TenantPaymentReportComponent implements OnInit {
   }
 
   private async loadTenantContext(tenantId: string, propertyId: string): Promise<void> {
-    const [tenant, property] = await Promise.all([
+    const [tenant, property, payments] = await Promise.all([
       firstValueFrom(this.tenantService.getById(tenantId)),
       firstValueFrom(this.propertyService.getById(propertyId)),
+      firstValueFrom(this.paymentService.getByTenant(tenantId)),
     ]);
     if (!tenant) return;
 
@@ -87,15 +95,21 @@ export class TenantPaymentReportComponent implements OnInit {
     const resolvedCountry = countryCode ?? DEFAULT_COUNTRY_CODE;
     const currency = property?.currency ?? defaultCurrency(resolvedCountry);
     const nextMethods = this.countryProfiles.paymentMethodsForCountry(resolvedCountry);
+    const monthBalance = getTenantMonthBalance(tenant.monthlyRent, payments, { tenantId });
 
     this.tenantCountryCode.set(resolvedCountry);
     this.currency.set(currency);
     this.methods.set(nextMethods);
     this.monthlyRent.set(tenant.monthlyRent);
+    this.paidThisMonth.set(monthBalance.paidThisMonth);
+    this.balanceRemaining.set(monthBalance.balanceRemaining);
+    this.recentPayments.set(payments.slice(0, 5));
+    this.landlordId.set(property?.ownerId ?? this.auth.currentUser()?.linkedOwnerId);
 
     if (!this.form.controls.amount.dirty) {
+      const suggestedAmount = monthBalance.balanceRemaining > 0 ? monthBalance.balanceRemaining : tenant.monthlyRent;
       this.form.patchValue({
-        amount: tenant.monthlyRent,
+        amount: suggestedAmount,
         method: nextMethods[0]?.value ?? 'cash',
       });
     }
@@ -141,5 +155,14 @@ export class TenantPaymentReportComponent implements OnInit {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  recordedByLabel(payment: Payment): string {
+    const user = this.auth.currentUser();
+    return paymentRecordedByLabel(payment, {
+      viewer: 'tenant',
+      tenantUserId: user?.id,
+      ownerId: this.landlordId(),
+    });
   }
 }

@@ -10,6 +10,7 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
   Payment,
+  paymentRecordedByLabel,
 } from '../../../core/models/payment.model';
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
@@ -19,6 +20,7 @@ import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 
 interface MyPaymentsData {
   currency: string;
+  ownerId?: string;
   items: Payment[];
 }
 
@@ -49,7 +51,7 @@ export class MyPaymentsComponent implements OnInit {
   payments$ = of(this.auth.currentUser()).pipe(
     switchMap((user) => {
       if (!user?.tenantRecordId || !isTenancyLinked(user)) {
-        return of({ currency: defaultCurrency(), items: [] } satisfies MyPaymentsData);
+        return of({ currency: defaultCurrency(), ownerId: undefined, items: [] } satisfies MyPaymentsData);
       }
 
       return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
@@ -57,12 +59,19 @@ export class MyPaymentsComponent implements OnInit {
           this.propertyService.getById(user.linkedPropertyId!).pipe(
             map((property) => ({
               currency: property?.currency ?? defaultCurrency(user.countryCode),
+              ownerId: property?.ownerId ?? user.linkedOwnerId,
               items,
             })),
-            catchError(() => of({ currency: defaultCurrency(user.countryCode), items }))
+            catchError(() =>
+              of({
+                currency: defaultCurrency(user.countryCode),
+                ownerId: user.linkedOwnerId,
+                items,
+              })
+            )
           )
         ),
-        catchError(() => of({ currency: defaultCurrency(), items: [] } satisfies MyPaymentsData))
+        catchError(() => of({ currency: defaultCurrency(), ownerId: undefined, items: [] } satisfies MyPaymentsData))
       );
     })
   );
@@ -86,5 +95,14 @@ export class MyPaymentsComponent implements OnInit {
 
   pendingCount(items: Payment[]): number {
     return items.filter((p) => p.status === 'pending_verification').length;
+  }
+
+  recordedByLabel(payment: Payment, ownerId?: string): string {
+    const user = this.auth.currentUser();
+    return paymentRecordedByLabel(payment, {
+      viewer: 'tenant',
+      tenantUserId: user?.id,
+      ownerId: ownerId ?? user?.linkedOwnerId,
+    });
   }
 }

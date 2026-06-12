@@ -44,6 +44,12 @@
             <span class="summary-value">{{ summary.totalUnpaid | currencyFormat: summary.currency }}</span>
           </div>
           <p class="summary-meta">
+            @if (summary.totalCollected > 0) {
+              <span>{{ summary.totalCollected | currencyFormat: summary.currency }} collected</span>
+            }
+            @if (summary.pendingVerification > 0) {
+              <span class="meta-pending">{{ summary.pendingVerification | currencyFormat: summary.currency }} pending verification</span>
+            }
             @if (summary.overdueCount > 0) {
               <span class="meta-alert">{{ summary.overdueCount }} overdue</span>
             }
@@ -200,6 +206,19 @@
                           <p class="rent-line">
                             {{ item.tenant.monthlyRent | currencyFormat: item.currency }} / month
                           </p>
+                          @if (item.monthBalance.paidThisMonth > 0 || item.monthBalance.pendingAmount > 0) {
+                            <p class="balance-line">
+                              @if (item.monthBalance.paidThisMonth > 0) {
+                                <span>{{ item.monthBalance.paidThisMonth | currencyFormat: item.currency }} paid</span>
+                              }
+                              @if (item.monthBalance.balanceRemaining > 0) {
+                                <span>{{ item.monthBalance.balanceRemaining | currencyFormat: item.currency }} left</span>
+                              }
+                              @if (item.monthBalance.pendingAmount > 0) {
+                                <span class="balance-pending">tenant reported · pending</span>
+                              }
+                            </p>
+                          }
                         </div>
                       </a>
 

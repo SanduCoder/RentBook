@@ -170,6 +170,11 @@
     font-weight: 600;
   }
 
+  .meta-pending {
+    color: #b45309;
+    font-weight: 600;
+  }
+
   .pending-section,
   .tenant-section {
     margin-bottom: 1rem;
@@ -423,6 +428,26 @@
     font-size: 0.8125rem;
     font-weight: 600;
     color: #0f172a;
+  }
+
+  .balance-line {
+    margin: 0.25rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .balance-line span:not(:last-child)::after {
+    content: '·';
+    margin-left: 0.5rem;
+    color: #cbd5e1;
+  }
+
+  .balance-pending {
+    color: #b45309;
+    font-weight: 600;
   }
 
   .tenant-actions {

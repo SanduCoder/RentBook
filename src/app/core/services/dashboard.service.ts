@@ -10,7 +10,7 @@ import { TenantService } from './tenant.service';
 import { UnitService } from './unit.service';
 import { defaultCurrency } from '../config/country-profiles.config';
 import { propertyCountryCode, resolveOwnerListCurrency } from '../utils/currency-aggregation.utils';
-import { paymentMethodLabel } from '../models/payment.model';
+import { paymentMethodLabel, paymentRecordedByLabel, PAYMENT_STATUS_LABELS } from '../models/payment.model';
 import { formatCurrency, getMonthStart } from '../utils/firestore.utils';
 import {
   calculateExpectedMonthlyRent,
@@ -54,6 +54,7 @@ export interface ActivityItem {
   id: string;
   type: 'payment' | 'overdue' | 'maintenance';
   message: string;
+  detail?: string;
   timestamp: Date;
   amount?: number;
   tenantId?: string;
@@ -195,7 +196,12 @@ export class DashboardService {
                 message:
                   p.status === 'pending_verification'
                     ? `Payment reported — ${formatCurrency(p.amount, currency)} (${paymentMethodLabel(p.method)})`
-                    : `Payment ${p.status} — ${formatCurrency(p.amount, currency)}`,
+                    : `Payment ${PAYMENT_STATUS_LABELS[p.status] ?? p.status} — ${formatCurrency(p.amount, currency)}`,
+                detail: paymentRecordedByLabel(p, {
+                  viewer: 'tenant',
+                  tenantUserId: user.id,
+                  ownerId: property?.ownerId ?? user.linkedOwnerId,
+                }),
                 timestamp: p.date,
                 amount: p.amount,
                 tenantId: p.tenantId,
@@ -230,6 +236,7 @@ export class DashboardService {
                 message: p.reportedByTenant
                   ? `Tenant reported ${amountLabel} via ${paymentMethodLabel(p.method)}`
                   : `Payment recorded — ${amountLabel}`,
+                detail: paymentRecordedByLabel(p, { viewer: 'owner', ownerId: user.id }),
                 timestamp: p.date,
                 amount: p.amount,
                 tenantId: p.tenantId,

@@ -31,9 +31,16 @@
             <li [id]="paymentDomId(payment.id)">
               <article class="record-card">
                 <div class="card-header">
+                  <div class="card-thumb thumb-method">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="2" y="5" width="20" height="14" rx="2" />
+                      <path d="M2 10h20" />
+                    </svg>
+                  </div>
                   <div class="card-head-text">
                     <h3>{{ payment.amount | currencyFormat: data.currency }}</h3>
                     <p class="card-meta">{{ methodLabels[payment.method] }}</p>
+                    <p class="card-recorded-by">{{ recordedByLabel(payment, data.ownerId) }}</p>
                   </div>
                   <span class="status-badge" [class]="payment.status">
                     {{ statusLabels[payment.status] }}
@@ -41,13 +48,51 @@
                 </div>
                 <div class="details-grid">
                   <div class="detail-item">
-                    <span class="detail-label">Date</span>
-                    <span class="detail-value">{{ payment.date | date: 'MMM d, yyyy' }}</span>
+                    <span class="detail-icon detail-green" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Amount</span>
+                      <span class="detail-value">{{ payment.amount | currencyFormat: data.currency }}</span>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-icon detail-blue" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                        <path d="M16 2v4M8 2v4M3 10h18" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Date</span>
+                      <span class="detail-value">{{ payment.date | date: 'MMM d, yyyy' }}</span>
+                    </div>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-icon detail-purple" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2" />
+                        <path d="M2 10h20" />
+                      </svg>
+                    </span>
+                    <div class="detail-text">
+                      <span class="detail-label">Method</span>
+                      <span class="detail-value">{{ methodLabels[payment.method] }}</span>
+                    </div>
                   </div>
                   @if (payment.reference) {
                     <div class="detail-item">
-                      <span class="detail-label">Reference</span>
-                      <span class="detail-value">{{ payment.reference }}</span>
+                      <span class="detail-icon detail-purple" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M4 7h16M4 12h10M4 17h16" />
+                        </svg>
+                      </span>
+                      <div class="detail-text">
+                        <span class="detail-label">Reference</span>
+                        <span class="detail-value">{{ payment.reference }}</span>
+                      </div>
                     </div>
                   }
                 </div>

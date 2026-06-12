@@ -76,14 +76,12 @@
                   <div class="card-head-text">
                     <h3>{{ payment.amount | currencyFormat: data.currency }}</h3>
                     <p class="card-meta">{{ methodLabels[payment.method] }}</p>
+                    <p class="card-recorded-by">{{ recordedByLabel(payment) }}</p>
                   </div>
                   <span class="status-badge" [class]="payment.status">
                     {{ statusLabels[payment.status] }}
                   </span>
                 </div>
-                @if (payment.reportedByTenant) {
-                  <p class="card-report-note">Reported by tenant</p>
-                }
                 <div class="details-grid">
                   <div class="detail-item">
                     <span class="detail-icon detail-green" aria-hidden="true">

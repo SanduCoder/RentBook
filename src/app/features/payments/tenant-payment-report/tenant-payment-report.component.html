@@ -13,9 +13,16 @@
   <app-page-header title="Report Payment" [subtitle]="pageSubtitle()" />
 
   <form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
-    <p class="form-hint">
+    <p class="form-hint rent-context">
       @if (monthlyRent() > 0) {
-        Monthly rent: <strong>{{ monthlyRent() | currencyFormat: currency() }}</strong>
+        <span>Monthly rent: <strong>{{ monthlyRent() | currencyFormat: currency() }}</strong></span>
+        @if (paidThisMonth() > 0) {
+          <span>Paid this month: <strong>{{ paidThisMonth() | currencyFormat: currency() }}</strong></span>
+        }
+        <span>
+          Remaining balance:
+          <strong [class.balance-clear]="balanceRemaining() === 0">{{ balanceRemaining() | currencyFormat: currency() }}</strong>
+        </span>
       }
     </p>
 
@@ -63,5 +70,30 @@
       </button>
     </div>
   </form>
+
+  @if (recentPayments().length > 0) {
+    <section class="recent-payments" aria-label="Recent payments">
+      <div class="recent-payments-head">
+        <h2>Recent Payments</h2>
+        <a routerLink="/my-payments" class="view-all">View all</a>
+      </div>
+      <ul class="recent-payments-list">
+        @for (payment of recentPayments(); track payment.id) {
+          <li>
+            <div class="recent-payment-row">
+              <div>
+                <p class="recent-payment-amount">{{ payment.amount | currencyFormat: currency() }}</p>
+                <p class="recent-payment-meta">{{ recordedByLabel(payment) }}</p>
+              </div>
+              <div class="recent-payment-side">
+                <span class="status-badge" [class]="payment.status">{{ statusLabels[payment.status] }}</span>
+                <time>{{ payment.date | date: 'MMM d, yyyy' }}</time>
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
 }
 </div>

@@ -13,6 +13,7 @@ import {
   PAYMENT_STATUS_LABELS,
   Payment,
   PaymentStatus,
+  paymentRecordedByLabel,
 } from '../../../core/models/payment.model';
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
@@ -111,5 +112,10 @@ export class PaymentListComponent implements OnInit {
     } finally {
       this.actionPaymentId.set(null);
     }
+  }
+
+  recordedByLabel(payment: Payment): string {
+    const user = this.auth.currentUser();
+    return paymentRecordedByLabel(payment, user ? { viewer: 'owner', ownerId: user.id } : undefined);
   }
 }
