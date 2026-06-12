@@ -2,6 +2,7 @@ import { AsyncPipe, DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { map, switchMap } from 'rxjs';
+import { resolveOwnerListCurrency } from '../../../core/utils/currency-aggregation.utils';
 import { AuthService } from '../../../core/services/auth.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { SharedBillService } from '../../../core/services/shared-bill.service';
@@ -28,6 +29,7 @@ interface SharedBillListItem {
 
 interface SharedBillListData {
   currency: string;
+  mixedCurrencies: boolean;
   items: SharedBillListItem[];
 }
 
@@ -48,10 +50,11 @@ export class SharedBillListComponent {
   bills$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '').pipe(
     switchMap((properties) => {
       const propertyMap = new Map(properties.map((p) => [p.id, p.name]));
-      const currency = properties[0]?.currency ?? 'GMD';
+      const currencyContext = resolveOwnerListCurrency(properties, this.auth.currentUser()?.countryCode);
       return this.sharedBillService.getByOwnerProperties(properties.map((p) => p.id)).pipe(
         map((bills) => ({
-          currency,
+          currency: currencyContext.currency,
+          mixedCurrencies: currencyContext.mixedCurrencies,
           items: bills.map((b) => ({
             ...b,
             propertyName: propertyMap.get(b.propertyId) ?? 'Unknown',

@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, filter, map, of, switchMap, take } from 'rxjs';
 import { listItemDomId, scrollToListItem } from '../../../core/utils/list-focus.utils';
+import { defaultCurrency } from '../../../core/config/country-profiles.config';
 import { AuthService } from '../../../core/services/auth.service';
 import {
   PAYMENT_METHOD_LABELS,
@@ -48,20 +49,20 @@ export class MyPaymentsComponent implements OnInit {
   payments$ = of(this.auth.currentUser()).pipe(
     switchMap((user) => {
       if (!user?.tenantRecordId || !isTenancyLinked(user)) {
-        return of({ currency: 'GMD', items: [] } satisfies MyPaymentsData);
+        return of({ currency: defaultCurrency(), items: [] } satisfies MyPaymentsData);
       }
 
       return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
         switchMap((items) =>
           this.propertyService.getById(user.linkedPropertyId!).pipe(
             map((property) => ({
-              currency: property?.currency ?? 'GMD',
+              currency: property?.currency ?? defaultCurrency(user.countryCode),
               items,
             })),
-            catchError(() => of({ currency: 'GMD', items }))
+            catchError(() => of({ currency: defaultCurrency(user.countryCode), items }))
           )
         ),
-        catchError(() => of({ currency: 'GMD', items: [] } satisfies MyPaymentsData))
+        catchError(() => of({ currency: defaultCurrency(), items: [] } satisfies MyPaymentsData))
       );
     })
   );

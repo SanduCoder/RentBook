@@ -87,12 +87,34 @@
       </div>
 
       <div class="field">
+        <span class="field-label">Country</span>
+        <div class="input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
+          </svg>
+          <select formControlName="countryCode">
+            @for (country of countries; track country.code) {
+              <option [value]="country.code">{{ country.name }}</option>
+            }
+          </select>
+        </div>
+        @if (detectingCountry()) {
+          <p class="field-hint">Detecting your country…</p>
+        } @else if (countryDetected()) {
+          <p class="field-hint">Detected {{ selectedCountryName() }}. Change if this isn't right.</p>
+        } @else {
+          <p class="field-hint">Select your country to set currency and payment options.</p>
+        }
+      </div>
+
+      <div class="field">
         <span class="field-label">Phone</span>
         <div class="input-wrap">
           <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
           </svg>
-          <input type="tel" formControlName="phone" placeholder="+220 XXX XXXX" autocomplete="tel" />
+          <input type="tel" formControlName="phone" [placeholder]="phonePlaceholder()" autocomplete="tel" />
         </div>
       </div>
 

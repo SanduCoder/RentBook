@@ -1,4 +1,19 @@
-export type PaymentMethod = 'wave' | 'afrimoney' | 'qmoney' | 'bank_transfer' | 'cash';
+export type PaymentMethod =
+  | 'wave'
+  | 'afrimoney'
+  | 'qmoney'
+  | 'mpesa'
+  | 'mtn_momo'
+  | 'orange_money'
+  | 'airtel_money'
+  | 'bank_transfer'
+  | 'cash'
+  | 'card'
+  | 'zelle'
+  | 'venmo'
+  | 'cash_app'
+  | 'other';
+
 export type PaymentStatus = 'paid' | 'upcoming' | 'late' | 'partial' | 'pending_verification';
 
 export interface Payment {
@@ -26,18 +41,32 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   pending_verification: 'Pending verification',
 };
 
-export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
-  { value: 'wave', label: 'Wave' },
-  { value: 'afrimoney', label: 'AfriMoney' },
-  { value: 'qmoney', label: 'QMoney' },
-  { value: 'bank_transfer', label: 'Bank Transfer' },
-  { value: 'cash', label: 'Cash' },
-];
-
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   wave: 'Wave',
   afrimoney: 'AfriMoney',
   qmoney: 'QMoney',
+  mpesa: 'M-Pesa',
+  mtn_momo: 'MTN MoMo',
+  orange_money: 'Orange Money',
+  airtel_money: 'Airtel Money',
   bank_transfer: 'Bank Transfer',
   cash: 'Cash',
+  card: 'Card',
+  zelle: 'Zelle',
+  venmo: 'Venmo',
+  cash_app: 'Cash App',
+  other: 'Other',
 };
+
+/** @deprecated Use CountryProfileService.paymentMethodsForCountry instead. */
+export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: 'wave', label: PAYMENT_METHOD_LABELS.wave },
+  { value: 'afrimoney', label: PAYMENT_METHOD_LABELS.afrimoney },
+  { value: 'qmoney', label: PAYMENT_METHOD_LABELS.qmoney },
+  { value: 'bank_transfer', label: PAYMENT_METHOD_LABELS.bank_transfer },
+  { value: 'cash', label: PAYMENT_METHOD_LABELS.cash },
+];
+
+export function paymentMethodLabel(method: PaymentMethod | string): string {
+  return PAYMENT_METHOD_LABELS[method as PaymentMethod] ?? String(method).replace(/_/g, ' ');
+}

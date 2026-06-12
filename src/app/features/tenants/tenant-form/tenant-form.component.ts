@@ -9,12 +9,15 @@ import { PropertyService } from '../../../core/services/property.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { Unit } from '../../../core/models/unit.model';
 import { UnitService } from '../../../core/services/unit.service';
+import { defaultCurrency } from '../../../core/config/country-profiles.config';
+import { phonePlaceholder as formatPhonePlaceholder } from '../../../core/utils/country-detect.utils';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-tenant-form',
   standalone: true,
-  imports: [AsyncPipe, ReactiveFormsModule, RouterLink, PageHeaderComponent],
+  imports: [AsyncPipe, ReactiveFormsModule, RouterLink, PageHeaderComponent, CurrencyFormatPipe],
   templateUrl: './tenant-form.component.html',
   styleUrl: './tenant-form.component.scss',
 })
@@ -26,9 +29,13 @@ export class TenantFormComponent implements OnInit {
   private propertyService = inject(PropertyService);
   private unitService = inject(UnitService);
   private tenantService = inject(TenantService);
-
   loading = signal(false);
   vacantUnits = signal<Unit[]>([]);
+  propertyCurrency = signal(defaultCurrency(this.auth.currentUser()?.countryCode));
+
+  phonePlaceholderText(): string {
+    return formatPhonePlaceholder(this.auth.currentUser()?.countryCode);
+  }
 
   propertyId = this.route.snapshot.queryParamMap.get('propertyId') ?? '';
 
@@ -51,12 +58,24 @@ export class TenantFormComponent implements OnInit {
   ngOnInit(): void {
     if (this.propertyId) {
       void this.loadVacantUnits(this.propertyId);
+      void this.updatePropertyCurrency(this.propertyId);
     }
   }
 
   onPropertyChange(propertyId: string): void {
     this.form.patchValue({ propertyId, unitId: '', monthlyRent: 0 });
     void this.loadVacantUnits(propertyId);
+    void this.updatePropertyCurrency(propertyId);
+  }
+
+  private async updatePropertyCurrency(propertyId: string): Promise<void> {
+    if (!propertyId) {
+      this.propertyCurrency.set(defaultCurrency(this.auth.currentUser()?.countryCode));
+      return;
+    }
+
+    const property = await firstValueFrom(this.propertyService.getById(propertyId));
+    this.propertyCurrency.set(property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode));
   }
 
   onUnitChange(unitId: string): void {

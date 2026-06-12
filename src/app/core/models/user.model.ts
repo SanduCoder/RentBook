@@ -6,6 +6,7 @@ export interface AppUser {
   phone: string;
   email: string;
   role: UserRole;
+  countryCode?: string;
   photoUrl?: string;
   linkedOwnerId?: string;
   linkedPropertyId?: string;

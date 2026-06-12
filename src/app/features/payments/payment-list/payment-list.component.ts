@@ -4,6 +4,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { filter, map, switchMap, take } from 'rxjs';
 import { listItemDomId, scrollToListItem } from '../../../core/utils/list-focus.utils';
+import { CountryProfileService } from '../../../core/services/country-profile.service';
+import { resolveOwnerListCurrency } from '../../../core/utils/currency-aggregation.utils';
 import { AuthService } from '../../../core/services/auth.service';
 import { ErrorNotificationService } from '../../../core/services/error-notification.service';
 import {
@@ -20,6 +22,7 @@ import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 
 interface PaymentListData {
   currency: string;
+  mixedCurrencies: boolean;
   items: Payment[];
 }
 
@@ -37,17 +40,23 @@ export class PaymentListComponent implements OnInit {
   private notifications = inject(ErrorNotificationService);
   private route = inject(ActivatedRoute);
   private destroyRef = inject(DestroyRef);
+  private countryProfiles = inject(CountryProfileService);
 
   methodLabels = PAYMENT_METHOD_LABELS;
+  paymentMethodsHint = this.countryProfiles.paymentMethodsLabel(this.auth.currentUser()?.countryCode);
   statusLabels = PAYMENT_STATUS_LABELS;
   actionPaymentId = signal<string | null>(null);
   paymentDomId = (id: string) => listItemDomId('payment', id);
 
   payments$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '').pipe(
     switchMap((properties) => {
-      const currency = properties[0]?.currency ?? 'GMD';
+      const currencyContext = resolveOwnerListCurrency(properties, this.auth.currentUser()?.countryCode);
       return this.paymentService.getByOwnerProperties(properties.map((p) => p.id)).pipe(
-        map((items) => ({ currency, items }))
+        map((items) => ({
+          currency: currencyContext.currency,
+          mixedCurrencies: currencyContext.mixedCurrencies,
+          items,
+        }))
       );
     })
   );

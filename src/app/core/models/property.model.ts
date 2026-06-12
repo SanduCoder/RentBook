@@ -15,6 +15,7 @@ export interface Property {
   type: PropertyType;
   address: string;
   country: string;
+  countryCode?: string;
   currency: string;
   totalUnits: number;
   imageUrl?: string;

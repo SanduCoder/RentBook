@@ -59,7 +59,8 @@ export class RentReminderService {
       recipientUserId?: string;
     },
     currency: string,
-    sender: { id: string; name: string }
+    sender: { id: string; name: string },
+    countryCode?: string
   ): Promise<void> {
     await this.send({
       tenantId: due.tenantId,
@@ -71,6 +72,7 @@ export class RentReminderService {
         phone: due.phone,
         monthlyRent: due.monthlyRent,
         currency,
+        countryCode,
         dueDate: due.dueDate,
         isOverdue: due.isOverdue,
         landlordName: sender.name,
@@ -92,7 +94,8 @@ export class RentReminderService {
     unitName: string,
     currency: string,
     rentStatus: { dateValue: Date; status: string },
-    sender: { id: string; name: string }
+    sender: { id: string; name: string },
+    countryCode?: string
   ): Promise<void> {
     await this.send({
       tenantId: tenant.id,
@@ -104,6 +107,7 @@ export class RentReminderService {
         phone: tenant.phone,
         monthlyRent: tenant.monthlyRent,
         currency,
+        countryCode,
         dueDate: rentStatus.dateValue,
         isOverdue: rentStatus.status === 'overdue',
         landlordName: sender.name,
@@ -136,7 +140,7 @@ export class RentReminderService {
     );
 
     if (params.openWhatsApp !== false && params.details.phone) {
-      openWhatsAppReminder(params.details.phone, message);
+      openWhatsAppReminder(params.details.phone, message, params.details.countryCode);
     }
   }
 

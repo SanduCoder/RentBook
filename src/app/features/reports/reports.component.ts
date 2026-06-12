@@ -2,6 +2,8 @@ import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { combineLatest, map, of, switchMap } from 'rxjs';
+import { defaultCurrency } from '../../core/config/country-profiles.config';
+import { resolveOwnerListCurrency } from '../../core/utils/currency-aggregation.utils';
 import { AuthService } from '../../core/services/auth.service';
 import { ExpenseService } from '../../core/services/expense.service';
 import { PaymentService } from '../../core/services/payment.service';
@@ -26,11 +28,17 @@ export class ReportsComponent {
   report$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '').pipe(
     switchMap((properties) => {
       if (properties.length === 0) {
-        return of({ currency: 'GMD', income: 0, expenses: 0, profit: 0 });
+        return of({
+          currency: defaultCurrency(this.auth.currentUser()?.countryCode),
+          mixedCurrencies: false,
+          income: 0,
+          expenses: 0,
+          profit: 0,
+        });
       }
 
       const propertyIds = properties.map((p) => p.id);
-      const currency = properties[0]?.currency ?? 'GMD';
+      const currencyContext = resolveOwnerListCurrency(properties, this.auth.currentUser()?.countryCode);
       const monthStart = getMonthStart();
       return combineLatest([
         this.paymentService.getByOwnerProperties(propertyIds),
@@ -46,7 +54,8 @@ export class ReportsComponent {
             .reduce((sum, e) => sum + e.amount, 0);
 
           return {
-            currency,
+            currency: currencyContext.currency,
+            mixedCurrencies: currencyContext.mixedCurrencies,
             income,
             expenses: expenseTotal,
             profit: income - expenseTotal,

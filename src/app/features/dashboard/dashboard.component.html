@@ -100,6 +100,11 @@
     <div class="overview-panel">
       @if (canManage()) {
         <h2 class="overview-title">This Month Overview</h2>
+        @if (stats.mixedCurrencies) {
+          <p class="currency-warning">
+            Totals mix multiple currencies — figures below use {{ stats.currency }} only and may not reflect your full portfolio.
+          </p>
+        }
         @if (stats.pendingPaymentReports > 0) {
           <p class="tenant-overview-hint">
             {{ stats.pendingPaymentReports }} tenant payment(s) need verification.
@@ -185,7 +190,7 @@
               <span class="metric-note">{{ stats.rentDue.dueThisWeekCount }} tenants due this week</span>
             }
             @if (due.isUnpaid && due.phone) {
-              <button type="button" class="reminder-btn" (click)="sendRentReminder(due, stats.currency)">
+              <button type="button" class="reminder-btn" (click)="sendRentReminder(due, stats.currency, stats.countryCode)">
                 Send Reminder
               </button>
             }

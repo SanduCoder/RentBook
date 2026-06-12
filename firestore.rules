@@ -53,7 +53,11 @@ service cloud.firestore {
 
     function profileOnlyUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['name', 'phone', 'photoUrl']);
+        .hasOnly(['name', 'phone', 'photoUrl', 'countryCode']) &&
+        (
+          !('countryCode' in request.resource.data) ||
+          request.resource.data.countryCode is string
+        );
     }
 
     function ownerInviteCodeUpdate() {
@@ -131,11 +135,15 @@ service cloud.firestore {
       );
       allow create: if isSignedIn() &&
         request.auth.uid == userId &&
-        request.resource.data.keys().hasOnly(['name', 'phone', 'email', 'role', 'createdAt']) &&
+        request.resource.data.keys().hasOnly(['name', 'phone', 'email', 'role', 'createdAt', 'countryCode']) &&
         isValidRole(request.resource.data.role) &&
         request.resource.data.name is string &&
         request.resource.data.phone is string &&
-        request.resource.data.email is string;
+        request.resource.data.email is string &&
+        (
+          !('countryCode' in request.resource.data) ||
+          request.resource.data.countryCode is string
+        );
       allow update: if isSignedIn() && (
         (
           request.auth.uid == userId && (

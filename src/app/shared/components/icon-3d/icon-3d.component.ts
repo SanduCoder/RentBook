@@ -141,9 +141,34 @@ let iconId = 0;
         @case ('bills') {
           <circle cx="256" cy="256" r="180" [attr.fill]="'url(#' + gid('bg') + ')'" />
           <g [attr.filter]="'url(#' + gid('shadow') + ')'">
-            <path [attr.fill]="'url(#' + gid('blue') + ')'" d="M256 132c-72 88-108 148-108 196a108 108 0 00216 0c0-48-36-108-108-196z" />
-            <path fill="#93C5FD" d="M256 168c-48 58-72 98-72 132a72 72 0 00144 0c0-34-24-74-72-132z" opacity="0.55" />
-            <ellipse cx="230" cy="196" rx="18" ry="28" fill="#fff" opacity="0.25" />
+            <rect x="142" y="148" width="196" height="252" rx="18" fill="#BFDBFE" />
+            <path fill="#fff" d="M156 164h188a18 18 0 0 1 18 18v206a18 18 0 0 1-18 18H156a18 18 0 0 1-18-18V182a18 18 0 0 1 18-18z" />
+            <path fill="#DBEAFE" d="M156 356c0 10 8 18 18 18h44c-18-14-28-28-28-44v26H156z" />
+            <path
+              d="M332 156v72a28 28 0 0 1-56 0v-44a10 10 0 0 1 20 0v44a8 8 0 0 0 16 0v-72"
+              stroke="#475569"
+              stroke-width="9"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <circle cx="214" cy="248" r="40" [attr.fill]="'url(#' + gid('yellow') + ')'" />
+            <text
+              x="214"
+              y="262"
+              text-anchor="middle"
+              font-size="44"
+              font-weight="700"
+              font-family="system-ui, sans-serif"
+              fill="#1E293B"
+            >
+              $
+            </text>
+            <rect x="268" y="224" width="64" height="14" rx="7" fill="#CBD5E1" />
+            <rect x="268" y="248" width="48" height="14" rx="7" fill="#CBD5E1" />
+            <rect x="268" y="272" width="56" height="14" rx="7" fill="#CBD5E1" />
+            <circle cx="188" cy="344" r="13" fill="#22C55E" />
+            <rect x="214" y="336" width="108" height="12" rx="6" fill="#334155" opacity="0.75" />
           </g>
         }
         @case ('reports') {

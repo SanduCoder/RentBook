@@ -30,7 +30,9 @@ import { PropertyService } from '../../../core/services/property.service';
 import { SharedBillService } from '../../../core/services/shared-bill.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
-import { getMonthStart } from '../../../core/utils/firestore.utils';
+import { currencyLabel, defaultCurrency } from '../../../core/config/country-profiles.config';
+import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
+import { formatCurrency, getMonthStart } from '../../../core/utils/firestore.utils';
 import {
   calculateExpectedMonthlyRent,
   calculateMonthlyDiscount,
@@ -125,6 +127,8 @@ export class PropertyDetailComponent implements OnInit {
   unitTypes = UNIT_TYPES;
   perHousehold = calculatePerHousehold;
   formatUnitLayout = formatUnitLayout;
+  currencyDisplayLabel = currencyLabel;
+  resolvePropertyCountryCode = propertyCountryCode;
 
   tabs: { id: PropertyTab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -169,7 +173,7 @@ export class PropertyDetailComponent implements OnInit {
             totalUnits,
             occupancyRate: totalUnits ? Math.round((occupiedUnits / totalUnits) * 100) : 0,
             openMaintenance: requests.filter((r) => r.status !== 'completed').length,
-            currency: property?.currency ?? 'GMD',
+            currency: property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode),
             monthlyDiscount: discount.totalDiscount,
             listedRent: discount.listedRent,
             quotedRent: discount.quotedRent,
@@ -188,7 +192,7 @@ export class PropertyDetailComponent implements OnInit {
             totalUnits: 0,
             occupancyRate: 0,
             openMaintenance: 0,
-            currency: 'GMD',
+            currency: defaultCurrency(),
             monthlyDiscount: 0,
             listedRent: 0,
             quotedRent: 0,
@@ -203,14 +207,16 @@ export class PropertyDetailComponent implements OnInit {
   activity$ = this.propertyId$.pipe(
     switchMap((id) =>
       combineLatest([
+        this.propertyService.getById(id),
         this.paymentService.getByProperty(id),
         this.tenantService.getByProperty(id),
       ]).pipe(
-        map(([payments, tenants]) => {
+        map(([property, payments, tenants]) => {
+          const currency = property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode);
           const tenantNames = new Map(tenants.map((t) => [t.id, t.name]));
           return payments.slice(0, 6).map((p) => {
             const name = tenantNames.get(p.tenantId);
-            const amount = `D${p.amount.toLocaleString()}`;
+            const amount = formatCurrency(p.amount, currency);
             const method = PAYMENT_METHOD_LABELS[p.method];
             let message: string;
 
@@ -397,15 +403,20 @@ export class PropertyDetailComponent implements OnInit {
     this.activeTab.set(tab);
   }
 
-  async sendRentReminder(due: RentDueTenant, currency: string): Promise<void> {
+  async sendRentReminder(due: RentDueTenant, currency: string, countryCode?: string): Promise<void> {
     const user = this.auth.currentUser();
     if (!user) return;
 
     try {
-      await this.rentReminders.sendFromDue(due, currency, {
-        id: user.id,
-        name: user.name?.trim() || 'Your landlord',
-      });
+      await this.rentReminders.sendFromDue(
+        due,
+        currency,
+        {
+          id: user.id,
+          name: user.name?.trim() || 'Your landlord',
+        },
+        countryCode ?? user.countryCode
+      );
       this.notifications.success('Reminder saved in RentBook');
     } catch {
       this.notifications.show('Could not send reminder. Try again.');

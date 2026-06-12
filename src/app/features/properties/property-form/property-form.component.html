@@ -28,14 +28,19 @@
 
   <label>
     Country
-    <input type="text" formControlName="country" />
+    <select formControlName="countryCode">
+      @for (country of countries; track country.code) {
+        <option [value]="country.code">{{ country.name }}</option>
+      }
+    </select>
   </label>
 
   <label>
     Currency
     <select formControlName="currency">
-      <option value="GMD">GMD (Dalasi)</option>
-      <option value="USD">USD</option>
+      @for (currency of currencies(); track currency.code) {
+        <option [value]="currency.code">{{ currency.code }} ({{ currency.name }})</option>
+      }
     </select>
   </label>
 

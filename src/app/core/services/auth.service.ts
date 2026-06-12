@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { EnvironmentInjector, Injectable, inject, runInInjectionContext, signal } from '@angular/core';
 import { AppCheck } from '@angular/fire/app-check';
 import {
   Auth,
@@ -21,6 +21,7 @@ import {
   setDoc,
   updateDoc,
 } from '@angular/fire/firestore';
+import { resolveCountryCode } from '../config/country-profiles.config';
 import { AppUser, UserRole } from '../models/user.model';
 import { InviteCodeService } from './invite-code.service';
 import { canManageTenants } from '../utils/role.utils';
@@ -34,6 +35,7 @@ export class AuthService {
   private auth = inject(Auth);
   private appCheck = inject(AppCheck, { optional: true });
   private firestore = inject(Firestore);
+  private injector = inject(EnvironmentInjector);
   private inviteCodeService = inject(InviteCodeService);
 
   readonly currentUser = signal<AppUser | null>(null);
@@ -107,7 +109,7 @@ export class AuthService {
     name: string,
     phone: string,
     role: UserRole = 'owner',
-    _options?: { inviteCode?: string; unitId?: string }
+    _options?: { inviteCode?: string; unitId?: string; countryCode?: string }
   ): Promise<void> {
     await ensureAppCheckReady(this.appCheck ?? null);
 
@@ -115,11 +117,14 @@ export class AuthService {
     await updateFirebaseProfile(credential.user, { displayName: name });
     await sendEmailVerification(credential.user);
 
+    const countryCode = resolveCountryCode(_options?.countryCode);
+
     const appUser: Omit<AppUser, 'id'> = {
       name,
       phone,
       email,
       role,
+      countryCode,
       createdAt: new Date(),
     };
 
@@ -201,6 +206,26 @@ export class AuthService {
     await sendPasswordResetEmail(this.auth, email);
   }
 
+  async updateCountry(countryCode: string): Promise<void> {
+    const firebaseUser = this.firebaseUser();
+    const appUser = this.currentUser();
+    if (!firebaseUser || !appUser) {
+      throw new Error('Not signed in');
+    }
+
+    const resolved = resolveCountryCode(countryCode);
+    await this.runFirestore((db) =>
+      updateDoc(doc(db, 'users', firebaseUser.uid), {
+        countryCode: resolved,
+      }),
+    );
+
+    this.currentUser.set({
+      ...appUser,
+      countryCode: resolved,
+    });
+  }
+
   async updateProfile(updates: { name: string; phone: string }): Promise<void> {
     const firebaseUser = this.firebaseUser();
     const appUser = this.currentUser();
@@ -209,10 +234,12 @@ export class AuthService {
     }
 
     await updateFirebaseProfile(firebaseUser, { displayName: updates.name });
-    await updateDoc(doc(this.firestore, 'users', firebaseUser.uid), {
-      name: updates.name,
-      phone: updates.phone,
-    });
+    await this.runFirestore((db) =>
+      updateDoc(doc(db, 'users', firebaseUser.uid), {
+        name: updates.name,
+        phone: updates.phone,
+      }),
+    );
 
     this.currentUser.set({
       ...appUser,
@@ -242,6 +269,7 @@ export class AuthService {
         phone: data['phone'] ?? '',
         email: data['email'] ?? '',
         role: data['role'] ?? 'owner',
+        countryCode: data['countryCode'] ? resolveCountryCode(data['countryCode']) : undefined,
         photoUrl: data['photoUrl'],
         linkedOwnerId: data['linkedOwnerId'],
         linkedPropertyId: data['linkedPropertyId'],
@@ -264,6 +292,7 @@ export class AuthService {
           phone: data['phone'] ?? '',
           email: data['email'] ?? '',
           role: data['role'] ?? 'owner',
+          countryCode: data['countryCode'] ? resolveCountryCode(data['countryCode']) : undefined,
           photoUrl: data['photoUrl'],
           linkedOwnerId: data['linkedOwnerId'],
           linkedPropertyId: data['linkedPropertyId'],
@@ -275,6 +304,10 @@ export class AuthService {
 
       throw err;
     }
+  }
+
+  private runFirestore<T>(fn: (db: Firestore) => T | Promise<T>): Promise<T> {
+    return runInInjectionContext(this.injector, () => Promise.resolve(fn(this.firestore)));
   }
 
   private withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {

@@ -2,6 +2,7 @@ import { AsyncPipe, DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { map, switchMap } from 'rxjs';
+import { resolveOwnerListCurrency } from '../../../core/utils/currency-aggregation.utils';
 import { AuthService } from '../../../core/services/auth.service';
 import { ExpenseCategory, EXPENSE_CATEGORY_LABELS } from '../../../core/models/expense.model';
 import { ExpenseService } from '../../../core/services/expense.service';
@@ -22,6 +23,7 @@ interface ExpenseListItem {
 
 interface ExpenseListData {
   currency: string;
+  mixedCurrencies: boolean;
   items: ExpenseListItem[];
   total: number;
 }
@@ -43,10 +45,11 @@ export class ExpenseListComponent {
   expenses$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '').pipe(
     switchMap((properties) => {
       const propertyMap = new Map(properties.map((p) => [p.id, p.name]));
-      const currency = properties[0]?.currency ?? 'GMD';
+      const currencyContext = resolveOwnerListCurrency(properties, this.auth.currentUser()?.countryCode);
       return this.expenseService.getByOwnerProperties(properties.map((p) => p.id)).pipe(
         map((expenses) => ({
-          currency,
+          currency: currencyContext.currency,
+          mixedCurrencies: currencyContext.mixedCurrencies,
           items: expenses.map((e) => ({
             ...e,
             propertyName: propertyMap.get(e.propertyId) ?? 'Unknown',

@@ -10,13 +10,22 @@
   </header>
 
   @if (expenses$ | async; as data) {
+    @if (data.mixedCurrencies) {
+      <p class="currency-warning">
+        Totals mix multiple currencies — the total below uses {{ data.currency }} only.
+      </p>
+    }
     @if (data.items.length > 0) {
       <div class="stat-cards">
         <div class="stat-card">
           <span class="stat-icon" aria-hidden="true">
             <app-icon-3d name="expenses" />
           </span>
-          <span class="stat-count">{{ data.total | currencyFormat: data.currency }}</span>
+          <span class="stat-count">
+            @if (data.mixedCurrencies) { — } @else {
+              {{ data.total | currencyFormat: data.currency }}
+            }
+          </span>
           <span class="stat-label">Total</span>
         </div>
         <div class="stat-card">

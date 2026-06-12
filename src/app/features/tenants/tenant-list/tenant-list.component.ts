@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
+import { defaultCurrency } from '../../../core/config/country-profiles.config';
 import { Property } from '../../../core/models/property.model';
 import { Tenant } from '../../../core/models/tenant.model';
 import { Unit } from '../../../core/models/unit.model';
@@ -15,6 +16,7 @@ import { PendingTenantUser, UserService } from '../../../core/services/user.serv
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
 import { getAvatarColors, getInitials } from '../../../core/utils/avatar.utils';
+import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
 import {
   TenantRentStatus,
   TenantRentStatusInfo,
@@ -28,6 +30,7 @@ interface TenantListItem {
   unitName: string;
   propertyName: string;
   currency: string;
+  countryCode: string;
   rentStatus: TenantRentStatusInfo;
 }
 
@@ -111,7 +114,8 @@ export class TenantListComponent {
               tenant,
               unitName: unit?.name ?? 'Unit',
               propertyName: property?.name ?? 'Property',
-              currency: property?.currency ?? 'GMD',
+              currency: property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode),
+              countryCode: property ? propertyCountryCode(property) : this.auth.currentUser()?.countryCode ?? 'GM',
               rentStatus: getTenantRentStatus(tenant, tenantPayments),
             } satisfies TenantListItem;
           });
@@ -274,7 +278,8 @@ export class TenantListComponent {
         item.unitName,
         item.currency,
         item.rentStatus,
-        { id: user.id, name: user.name?.trim() || 'Your landlord' }
+        { id: user.id, name: user.name?.trim() || 'Your landlord' },
+        item.countryCode
       );
       this.notifications.success('Reminder saved in RentBook');
     } catch {

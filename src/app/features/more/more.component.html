@@ -140,6 +140,20 @@
         </a>
       </li>
     }
+    <li>
+      <button type="button" class="menu-item menu-item-btn" (click)="openCountryModal()">
+        <span class="menu-icon" aria-hidden="true">
+          <app-icon-3d name="language" />
+        </span>
+        <span class="menu-label">
+          Country &amp; region
+          <span class="menu-sub">{{ savedCountryProfile().name }}</span>
+        </span>
+        <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+      </button>
+    </li>
     <li class="menu-item menu-item-disabled">
       <span class="menu-icon" aria-hidden="true">
         <app-icon-3d name="notifications" />
@@ -160,16 +174,6 @@
         <path d="M9 6l6 6-6 6" />
       </svg>
     </li>
-    <li class="menu-item menu-item-disabled">
-      <span class="menu-icon" aria-hidden="true">
-        <app-icon-3d name="language" />
-      </span>
-      <span class="menu-label">Language</span>
-      <span class="coming">Soon</span>
-      <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M9 6l6 6-6 6" />
-      </svg>
-    </li>
   </ul>
 
   <button type="button" class="btn-sign-out" (click)="logout()">
@@ -182,3 +186,47 @@
   <p class="version">RentBook v1.1 — Phase 2</p>
   <app-recaptcha-notice />
 </div>
+
+@if (countryModalOpen()) {
+  <div class="country-modal-backdrop" (click)="cancelCountryModal()" aria-hidden="true"></div>
+  <div
+    class="country-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="country-modal-title"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="country-modal-header">
+      <h2 id="country-modal-title">Country &amp; region</h2>
+      <button type="button" class="country-modal-close" (click)="cancelCountryModal()" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <p class="country-hint">
+      Sets your default currency ({{ draftCountryProfile().defaultCurrency }}) and payment methods
+      ({{ draftPaymentMethodsLabel() }}). Properties in your previous country are updated to match —
+      review unit rents after saving if needed.
+    </p>
+    <label class="country-field">
+      <span>Country</span>
+      <select [ngModel]="draftCountryCode()" (ngModelChange)="draftCountryCode.set($event); countryError.set('')">
+        @for (country of countries; track country.code) {
+          <option [value]="country.code">{{ country.name }}</option>
+        }
+      </select>
+    </label>
+    @if (countryError()) {
+      <p class="country-error">{{ countryError() }}</p>
+    }
+    <div class="country-modal-actions">
+      <button type="button" class="country-cancel-btn" (click)="cancelCountryModal()" [disabled]="savingCountry()">
+        Cancel
+      </button>
+      <button type="button" class="country-save-btn" (click)="saveCountry()" [disabled]="savingCountry()">
+        {{ savingCountry() ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+  </div>
+}

@@ -11,7 +11,9 @@ import {
   updateDoc,
   where,
 } from '@angular/fire/firestore';
-import { Observable, map } from 'rxjs';
+import { Observable, firstValueFrom, map } from 'rxjs';
+import { getCountryProfile, resolveCountryCode } from '../config/country-profiles.config';
+import { propertyCountryCode } from '../utils/currency-aggregation.utils';
 import { Property, PropertyType } from '../models/property.model';
 import { observeDocumentById, observeQuery } from '../utils/firestore-observable';
 import { stripUndefined, toDate } from '../utils/firestore.utils';
@@ -21,6 +23,7 @@ export interface CreatePropertyDto {
   type: PropertyType;
   address: string;
   country: string;
+  countryCode?: string;
   currency: string;
   imageUrl?: string;
 }
@@ -84,5 +87,33 @@ export class PropertyService {
 
   async updateUnitCount(id: string, count: number): Promise<void> {
     await updateDoc(doc(this.firestore, 'properties', id), { totalUnits: count });
+  }
+
+  async syncOwnerCountryProfile(
+    ownerId: string,
+    countryCode: string,
+    previousCountryCode?: string | null
+  ): Promise<void> {
+    const profile = getCountryProfile(countryCode);
+    const previousCode = resolveCountryCode(previousCountryCode);
+    const properties = await firstValueFrom(this.getByOwner(ownerId));
+    const targets = properties.filter((property) => {
+      const currentCode = propertyCountryCode(property);
+      return currentCode === previousCode || !property.countryCode;
+    });
+
+    if (targets.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      targets.map((property) =>
+        this.update(property.id, {
+          countryCode: profile.code,
+          country: profile.name,
+          currency: profile.defaultCurrency,
+        })
+      )
+    );
   }
 }

@@ -6,6 +6,7 @@ import { Payment } from '../../../core/models/payment.model';
 import { Property, PROPERTY_TYPE_LABELS } from '../../../core/models/property.model';
 import { Tenant } from '../../../core/models/tenant.model';
 import { Unit } from '../../../core/models/unit.model';
+import { defaultCurrency } from '../../../core/config/country-profiles.config';
 import { AuthService } from '../../../core/services/auth.service';
 import { ErrorNotificationService } from '../../../core/services/error-notification.service';
 import { PaymentService } from '../../../core/services/payment.service';
@@ -13,6 +14,8 @@ import { PropertyService } from '../../../core/services/property.service';
 import { RentReminderService } from '../../../core/services/rent-reminder.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
+import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
+import { normalizePhone } from '../../../core/utils/phone.utils';
 import { TenantRentStatusInfo, getTenantRentStatus } from '../../../core/utils/tenant-status.utils';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
@@ -24,6 +27,7 @@ interface TenantDetailData {
   unit?: Unit;
   rentStatus: TenantRentStatusInfo;
   currency: string;
+  countryCode: string;
   unitName: string;
   propertyName: string;
 }
@@ -83,7 +87,10 @@ export class TenantDetailComponent {
                 property,
                 unit,
                 rentStatus: getTenantRentStatus(tenant, payments),
-                currency: property?.currency ?? 'GMD',
+                currency: property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode),
+                countryCode: property
+                  ? propertyCountryCode(property)
+                  : this.auth.currentUser()?.countryCode ?? 'GM',
                 unitName: unit?.name ?? 'Unit',
                 propertyName: property?.name ?? 'Property',
               },
@@ -96,9 +103,9 @@ export class TenantDetailComponent {
     )
   );
 
-  whatsAppLink(phone: string): string {
-    const digits = phone.replace(/\D/g, '');
-    return `https://wa.me/${digits}`;
+  whatsAppLink(phone: string, countryCode?: string): string {
+    const normalized = normalizePhone(phone, countryCode);
+    return normalized ? `https://wa.me/${normalized}` : '#';
   }
 
   async sendReminder(data: TenantDetailData): Promise<void> {
@@ -111,7 +118,8 @@ export class TenantDetailComponent {
         data.unitName,
         data.currency,
         data.rentStatus,
-        { id: user.id, name: user.name?.trim() || 'Your landlord' }
+        { id: user.id, name: user.name?.trim() || 'Your landlord' },
+        data.countryCode
       );
       this.notifications.success('Reminder saved in RentBook');
     } catch {

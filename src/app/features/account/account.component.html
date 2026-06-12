@@ -34,7 +34,7 @@
 
       <label>
         Phone
-        <input type="tel" formControlName="phone" placeholder="e.g. +220 123 4567" autocomplete="tel" />
+        <input type="tel" formControlName="phone" [placeholder]="phonePlaceholderText()" autocomplete="tel" />
       </label>
 
       <label>

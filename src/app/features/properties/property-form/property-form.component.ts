@@ -2,8 +2,10 @@ import { Location } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { DEFAULT_COUNTRY_CODE, CurrencyOption, getCountryProfile, resolveCountryCode } from '../../../core/config/country-profiles.config';
 import { navigateBack } from '../../../core/utils/navigate-back.util';
 import { AuthService } from '../../../core/services/auth.service';
+import { CountryProfileService } from '../../../core/services/country-profile.service';
 import { PropertyImageService } from '../../../core/services/property-image.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { InviteCodeService } from '../../../core/services/invite-code.service';
@@ -23,6 +25,7 @@ export class PropertyFormComponent implements OnInit {
   private propertyService = inject(PropertyService);
   private propertyImageService = inject(PropertyImageService);
   private inviteCodeService = inject(InviteCodeService);
+  private countryProfiles = inject(CountryProfileService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private location = inject(Location);
@@ -30,6 +33,8 @@ export class PropertyFormComponent implements OnInit {
   loading = signal(false);
   propertyId = this.route.snapshot.paramMap.get('id');
   isEdit = !!this.propertyId;
+  currencies = signal<CurrencyOption[]>(getCountryProfile(DEFAULT_COUNTRY_CODE).currencies);
+  countries = this.countryProfiles.countries;
 
   selectedFile = signal<File | null>(null);
   imagePreview = signal<string | null>(null);
@@ -48,26 +53,41 @@ export class PropertyFormComponent implements OnInit {
     name: ['', Validators.required],
     type: ['compound' as PropertyType, Validators.required],
     address: ['', Validators.required],
+    countryCode: [DEFAULT_COUNTRY_CODE, Validators.required],
     country: ['Gambia', Validators.required],
-    currency: ['GMD', Validators.required],
+    currency: [getCountryProfile(DEFAULT_COUNTRY_CODE).defaultCurrency, Validators.required],
   });
 
   ngOnInit(): void {
-    if (!this.propertyId) return;
-
-    this.propertyService.getById(this.propertyId).subscribe((property) => {
-      if (!property) return;
-      this.form.patchValue({
-        name: property.name,
-        type: property.type,
-        address: property.address,
-        country: property.country,
-        currency: property.currency,
-      });
-      if (property.imageUrl) {
-        this.existingImageUrl.set(property.imageUrl);
-      }
+    this.form.controls.countryCode.valueChanges.subscribe((countryCode) => {
+      this.applyCountryProfile(countryCode);
     });
+
+    if (this.propertyId) {
+      this.propertyService.getById(this.propertyId).subscribe((property) => {
+        if (!property) return;
+        const countryCode = property.countryCode
+          ? resolveCountryCode(property.countryCode)
+          : resolveCountryCode(property.country);
+        this.form.patchValue({
+          name: property.name,
+          type: property.type,
+          address: property.address,
+          countryCode,
+          country: property.country,
+          currency: property.currency,
+        });
+        this.applyCountryProfile(countryCode, false);
+        if (property.imageUrl) {
+          this.existingImageUrl.set(property.imageUrl);
+        }
+      });
+      return;
+    }
+
+    const userCountry = this.auth.currentUser()?.countryCode ?? DEFAULT_COUNTRY_CODE;
+    this.form.patchValue({ countryCode: userCountry });
+    this.applyCountryProfile(userCountry, false);
   }
 
   onFileSelected(event: Event): void {
@@ -143,5 +163,17 @@ export class PropertyFormComponent implements OnInit {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private applyCountryProfile(countryCode: string, resetCurrency = true): void {
+    const profile = getCountryProfile(countryCode);
+    this.currencies.set(profile.currencies);
+    this.form.patchValue(
+      {
+        country: profile.name,
+        ...(resetCurrency ? { currency: profile.defaultCurrency } : {}),
+      },
+      { emitEvent: false }
+    );
   }
 }

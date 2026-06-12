@@ -1,8 +1,9 @@
 import { AsyncPipe, Location } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { navigateBack } from '../../../core/utils/navigate-back.util';
+import { defaultCurrency } from '../../../core/config/country-profiles.config';
 import { AuthService } from '../../../core/services/auth.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { SharedBillService } from '../../../core/services/shared-bill.service';
@@ -11,6 +12,7 @@ import {
   SharedBillType,
   calculatePerHousehold,
 } from '../../../core/models/shared-bill.model';
+import { firstValueFrom } from 'rxjs';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 
@@ -21,7 +23,7 @@ import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
   templateUrl: './shared-bill-form.component.html',
   styleUrl: './shared-bill-form.component.scss',
 })
-export class SharedBillFormComponent {
+export class SharedBillFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -32,6 +34,7 @@ export class SharedBillFormComponent {
 
   loading = signal(false);
   billTypes = SHARED_BILL_TYPES;
+  currency = signal(defaultCurrency(this.auth.currentUser()?.countryCode));
 
   preselectedPropertyId = this.route.snapshot.queryParamMap.get('propertyId') ?? '';
 
@@ -45,6 +48,25 @@ export class SharedBillFormComponent {
     description: [''],
     date: [new Date().toISOString().split('T')[0], Validators.required],
   });
+
+  ngOnInit(): void {
+    this.form.controls.propertyId.valueChanges.subscribe((propertyId) => {
+      void this.updateCurrencyForProperty(propertyId);
+    });
+    if (this.preselectedPropertyId) {
+      void this.updateCurrencyForProperty(this.preselectedPropertyId);
+    }
+  }
+
+  private async updateCurrencyForProperty(propertyId: string): Promise<void> {
+    if (!propertyId) {
+      this.currency.set(defaultCurrency(this.auth.currentUser()?.countryCode));
+      return;
+    }
+
+    const property = await firstValueFrom(this.propertyService.getById(propertyId));
+    this.currency.set(property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode));
+  }
 
   calcPerHousehold(): number {
     return calculatePerHousehold(

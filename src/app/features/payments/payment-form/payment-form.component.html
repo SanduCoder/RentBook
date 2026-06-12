@@ -14,13 +14,15 @@
   <app-page-header title="Record Payment" subtitle="Log a rent payment" />
 
   <form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
-    @if (tenants$ | async; as tenants) {
+    @if (tenantOptions$ | async; as tenants) {
       <label>
         Tenant
-        <select formControlName="tenantId">
+        <select formControlName="tenantId" (change)="onTenantChange($any($event.target).value)">
           <option value="" disabled>Select tenant</option>
           @for (tenant of tenants; track tenant.id) {
-            <option [value]="tenant.id">{{ tenant.name }} — D{{ tenant.monthlyRent }}</option>
+            <option [value]="tenant.id">
+              {{ tenant.name }} — {{ tenant.monthlyRent | currencyFormat: tenant.currency }}
+            </option>
           }
         </select>
       </label>
@@ -34,7 +36,7 @@
     <label>
       Payment Method
       <select formControlName="method">
-        @for (method of methods; track method.value) {
+        @for (method of methods(); track method.value) {
           <option [value]="method.value">{{ method.label }}</option>
         }
       </select>

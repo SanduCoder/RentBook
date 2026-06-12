@@ -38,9 +38,9 @@
   @if (form.controls.amount.value > 0 && form.controls.households.value > 0) {
     <div class="preview-card">
       <span class="preview-label">Each household pays</span>
-      <span class="preview-amount">{{ calcPerHousehold() | currencyFormat }}</span>
+      <span class="preview-amount">{{ calcPerHousehold() | currencyFormat: currency() }}</span>
       <span class="preview-detail">
-        {{ form.controls.amount.value | currencyFormat }} ÷ {{ form.controls.households.value }} households
+        {{ form.controls.amount.value | currencyFormat: currency() }} ÷ {{ form.controls.households.value }} households
       </span>
     </div>
   }

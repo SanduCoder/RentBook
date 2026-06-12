@@ -10,13 +10,22 @@
   </header>
 
   @if (payments$ | async; as data) {
+    @if (data.mixedCurrencies) {
+      <p class="currency-warning">
+        Totals mix multiple currencies — the total below uses {{ data.currency }} only.
+      </p>
+    }
     @if (data.items.length > 0) {
       <div class="stat-cards">
         <div class="stat-card">
           <span class="stat-icon" aria-hidden="true">
             <app-icon-3d name="collected" />
           </span>
-          <span class="stat-count">{{ totalAmount(data) | currencyFormat: data.currency }}</span>
+          <span class="stat-count">
+            @if (data.mixedCurrencies) { — } @else {
+              {{ totalAmount(data) | currencyFormat: data.currency }}
+            }
+          </span>
           <span class="stat-label">Total</span>
         </div>
         <div class="stat-card">
@@ -48,7 +57,7 @@
         <app-empty-state
           icon="💰"
           title="No payments yet"
-          message="Record rent payments from Wave, AfriMoney, cash, or bank transfer."
+          [message]="'Record rent payments via ' + paymentMethodsHint + '.'"
         >
           <a routerLink="/payments/new" class="btn-primary">Record Payment</a>
         </app-empty-state>

@@ -10,26 +10,43 @@
   </header>
 
   @if (report$ | async; as report) {
+    @if (report.mixedCurrencies) {
+      <p class="currency-warning">
+        This report mixes multiple currencies — figures below use {{ report.currency }} only.
+      </p>
+    }
     <div class="stat-cards">
       <div class="stat-card">
         <span class="stat-icon" aria-hidden="true">
           <app-icon-3d name="collected" />
         </span>
-        <span class="stat-count">{{ report.income | currencyFormat: report.currency }}</span>
+        <span class="stat-count">
+          @if (report.mixedCurrencies) { — } @else {
+            {{ report.income | currencyFormat: report.currency }}
+          }
+        </span>
         <span class="stat-label">Income</span>
       </div>
       <div class="stat-card">
         <span class="stat-icon" aria-hidden="true">
           <app-icon-3d name="expenses" />
         </span>
-        <span class="stat-count">{{ report.expenses | currencyFormat: report.currency }}</span>
+        <span class="stat-count">
+          @if (report.mixedCurrencies) { — } @else {
+            {{ report.expenses | currencyFormat: report.currency }}
+          }
+        </span>
         <span class="stat-label">Expenses</span>
       </div>
       <div class="stat-card">
         <span class="stat-icon" aria-hidden="true">
           <app-icon-3d name="reports" />
         </span>
-        <span class="stat-count" [class.negative]="report.profit < 0">{{ report.profit | currencyFormat: report.currency }}</span>
+        <span class="stat-count" [class.negative]="report.profit < 0">
+          @if (report.mixedCurrencies) { — } @else {
+            {{ report.profit | currencyFormat: report.currency }}
+          }
+        </span>
         <span class="stat-label">Net Profit</span>
       </div>
       <div class="stat-card">

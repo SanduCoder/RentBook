@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { catchError, combineLatest, map, Observable, of, switchMap } from 'rxjs';
 import { AuthService } from './auth.service';
 import { ExpenseService } from './expense.service';
@@ -7,8 +8,10 @@ import { PaymentService } from './payment.service';
 import { PropertyService } from './property.service';
 import { TenantService } from './tenant.service';
 import { UnitService } from './unit.service';
-import { PAYMENT_METHOD_LABELS } from '../models/payment.model';
-import { getMonthStart } from '../utils/firestore.utils';
+import { defaultCurrency } from '../config/country-profiles.config';
+import { propertyCountryCode, resolveOwnerListCurrency } from '../utils/currency-aggregation.utils';
+import { paymentMethodLabel } from '../models/payment.model';
+import { formatCurrency, getMonthStart } from '../utils/firestore.utils';
 import {
   calculateExpectedMonthlyRent,
   calculateMonthlyDiscount,
@@ -34,6 +37,8 @@ export interface DashboardStats {
   pendingPaymentReports: number;
   monthlyExpenses: number;
   currency: string;
+  countryCode: string;
+  mixedCurrencies: boolean;
   collectedTrend: number;
   outstandingTrend: number;
   monthlyDiscount: number;
@@ -66,38 +71,40 @@ export class DashboardService {
   private expenseService = inject(ExpenseService);
 
   getStats(): Observable<DashboardStats> {
-    const user = this.auth.currentUser();
-    if (!user) {
-      return of(this.emptyStats());
-    }
-
-    if (isTenant(user.role) && isTenancyLinked(user)) {
-      return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
-        switchMap((payments) =>
-          this.propertyService.getById(user.linkedPropertyId!).pipe(
-            map((property) => ({
-              ...this.emptyStats(),
-              currency: property?.currency ?? 'GMD',
-              pendingPaymentReports: countPendingPaymentReports(payments),
-            }))
-          )
-        ),
-        catchError(() => of(this.emptyStats()))
-      );
-    }
-
-    return this.propertyService.getByOwner(user.id).pipe(
-      switchMap((properties) => {
-        if (properties.length === 0) {
-          return of({
-            ...this.emptyStats(),
-            propertyCount: 0,
-            singlePropertyId: null,
-          });
+    return toObservable(this.auth.currentUser).pipe(
+      switchMap((user) => {
+        if (!user) {
+          return of(this.emptyStats());
         }
 
+        if (isTenant(user.role) && isTenancyLinked(user)) {
+          return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
+            switchMap((payments) =>
+              this.propertyService.getById(user.linkedPropertyId!).pipe(
+                map((property) => ({
+                  ...this.emptyStats(user.countryCode),
+                  currency: property?.currency ?? defaultCurrency(user.countryCode),
+                  pendingPaymentReports: countPendingPaymentReports(payments),
+                }))
+              )
+            ),
+            catchError(() => of(this.emptyStats(user.countryCode)))
+          );
+        }
+
+        return this.propertyService.getByOwner(user.id).pipe(
+          switchMap((properties) => {
+            if (properties.length === 0) {
+              return of({
+                ...this.emptyStats(user.countryCode),
+                propertyCount: 0,
+                singlePropertyId: null,
+              });
+            }
+
         const propertyIds = properties.map((p) => p.id);
-        const currency = properties[0]?.currency ?? 'GMD';
+        const currencyContext = resolveOwnerListCurrency(properties, user.countryCode);
+        const currency = currencyContext.currency;
         const propertyCount = properties.length;
         const singlePropertyId = propertyCount === 1 ? properties[0].id : null;
 
@@ -150,6 +157,8 @@ export class DashboardService {
               pendingPaymentReports,
               monthlyExpenses,
               currency,
+              countryCode: properties[0] ? propertyCountryCode(properties[0]) : user.countryCode ?? 'GM',
+              mixedCurrencies: currencyContext.mixedCurrencies,
               collectedTrend: this.percentChange(collectedThisMonth, collectedLastMonth),
               outstandingTrend: this.percentChange(outstandingRent, outstandingLastMonth),
               monthlyDiscount: discount.totalDiscount,
@@ -161,37 +170,45 @@ export class DashboardService {
               singlePropertyId,
             };
           })
+            );
+          }),
+          catchError(() => of(this.emptyStats(user.countryCode)))
         );
-      }),
-      catchError(() => of(this.emptyStats()))
+      })
     );
   }
 
   getRecentActivity(): Observable<ActivityItem[]> {
-    const user = this.auth.currentUser();
-    if (!user) return of([]);
+    return toObservable(this.auth.currentUser).pipe(
+      switchMap((user) => {
+        if (!user) return of([]);
 
-    if (isTenant(user.role) && isTenancyLinked(user)) {
+        if (isTenant(user.role) && isTenancyLinked(user)) {
       return this.paymentService.getByTenant(user.tenantRecordId!).pipe(
-        map((payments) =>
-          payments.slice(0, 10).map((p) => ({
-            id: p.id,
-            type: 'payment' as const,
-            message:
-              p.status === 'pending_verification'
-                ? `Payment reported — D${p.amount.toLocaleString()} (${PAYMENT_METHOD_LABELS[p.method]})`
-                : `Payment ${p.status} — D${p.amount.toLocaleString()}`,
-            timestamp: p.date,
-            amount: p.amount,
-            tenantId: p.tenantId,
-            propertyId: p.propertyId,
-          }))
+        switchMap((payments) =>
+          this.propertyService.getById(user.linkedPropertyId!).pipe(
+            map((property) => {
+              const currency = property?.currency ?? defaultCurrency(user.countryCode);
+              return payments.slice(0, 10).map((p) => ({
+                id: p.id,
+                type: 'payment' as const,
+                message:
+                  p.status === 'pending_verification'
+                    ? `Payment reported — ${formatCurrency(p.amount, currency)} (${paymentMethodLabel(p.method)})`
+                    : `Payment ${p.status} — ${formatCurrency(p.amount, currency)}`,
+                timestamp: p.date,
+                amount: p.amount,
+                tenantId: p.tenantId,
+                propertyId: p.propertyId,
+              }));
+            })
+          )
         ),
-        catchError(() => of([]))
-      );
-    }
+            catchError(() => of([]))
+          );
+        }
 
-    return this.propertyService.getByOwner(user.id).pipe(
+        return this.propertyService.getByOwner(user.id).pipe(
       switchMap((properties) => {
         const propertyIds = properties.map((p) => p.id);
         if (propertyIds.length === 0) return of([]);
@@ -201,17 +218,24 @@ export class DashboardService {
           this.maintenanceService.getByOwnerProperties(propertyIds),
         ]).pipe(
           map(([payments, requests]) => {
-            const paymentItems: ActivityItem[] = payments.slice(0, 8).map((p) => ({
-              id: p.id,
-              type: 'payment' as const,
-              message: p.reportedByTenant
-                ? `Tenant reported D${p.amount.toLocaleString()} via ${PAYMENT_METHOD_LABELS[p.method]}`
-                : `Payment recorded — D${p.amount.toLocaleString()}`,
-              timestamp: p.date,
-              amount: p.amount,
-              tenantId: p.tenantId,
-              propertyId: p.propertyId,
-            }));
+            const currencyByProperty = new Map(properties.map((property) => [property.id, property.currency]));
+            const fallbackCurrency = defaultCurrency(user.countryCode);
+
+            const paymentItems: ActivityItem[] = payments.slice(0, 8).map((p) => {
+              const currency = currencyByProperty.get(p.propertyId) ?? fallbackCurrency;
+              const amountLabel = formatCurrency(p.amount, currency);
+              return {
+                id: p.id,
+                type: 'payment' as const,
+                message: p.reportedByTenant
+                  ? `Tenant reported ${amountLabel} via ${paymentMethodLabel(p.method)}`
+                  : `Payment recorded — ${amountLabel}`,
+                timestamp: p.date,
+                amount: p.amount,
+                tenantId: p.tenantId,
+                propertyId: p.propertyId,
+              };
+            });
 
             const maintenanceItems: ActivityItem[] = requests.slice(0, 5).map((r) => ({
               id: r.id,
@@ -226,12 +250,14 @@ export class DashboardService {
               .slice(0, 10);
           })
         );
-      }),
-      catchError(() => of([]))
+          }),
+          catchError(() => of([]))
+        );
+      })
     );
   }
 
-  private emptyStats(): DashboardStats {
+  private emptyStats(countryCode?: string | null): DashboardStats {
     return {
       collectedThisMonth: 0,
       expectedMonthlyRent: 0,
@@ -244,7 +270,9 @@ export class DashboardService {
       pendingRequests: 0,
       pendingPaymentReports: 0,
       monthlyExpenses: 0,
-      currency: 'GMD',
+      currency: defaultCurrency(countryCode),
+      countryCode: countryCode ?? 'GM',
+      mixedCurrencies: false,
       collectedTrend: 0,
       outstandingTrend: 0,
       monthlyDiscount: 0,

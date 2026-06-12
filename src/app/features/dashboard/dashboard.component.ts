@@ -9,7 +9,9 @@ import { ErrorNotificationService } from '../../core/services/error-notification
 import { PropertyService } from '../../core/services/property.service';
 import { RentReminderService } from '../../core/services/rent-reminder.service';
 import { ActivityItem, DashboardService, DashboardStats } from '../../core/services/dashboard.service';
+import { CountryProfileService } from '../../core/services/country-profile.service';
 import { dashboardActivityLink } from '../../core/utils/activity.utils';
+import { formatCurrency } from '../../core/utils/firestore.utils';
 import { canManageTenants, hasPendingTenancyLink, isTenancyLinked } from '../../core/utils/role.utils';
 import { RentDueTenant } from '../../core/utils/tenant-status.utils';
 import { Icon3dComponent, Icon3dName } from '../../shared/components/icon-3d/icon-3d.component';
@@ -38,6 +40,7 @@ export class DashboardComponent {
   private propertyService = inject(PropertyService);
   private rentReminders = inject(RentReminderService);
   private notifications = inject(ErrorNotificationService);
+  private countryProfiles = inject(CountryProfileService);
 
   user = this.auth.currentUser;
   stats$ = this.dashboard.getStats();
@@ -53,32 +56,34 @@ export class DashboardComponent {
   canManage = computed(() => canManageTenants(this.user()?.role));
   pendingTenancyLink = computed(() => hasPendingTenancyLink(this.user()));
 
-  private tenantQuickActions: QuickAction[] = [
-    {
-      id: 'report-payment',
-      route: '/payments/report',
-      title: 'Report Payment',
-      subtitle: 'Wave, AfriMoney, cash & more',
-      icon: 'collected',
-      tone: 'green',
-    },
-    {
-      id: 'my-payments',
-      route: '/my-payments',
-      title: 'My Payments',
-      subtitle: 'View payment history',
-      icon: 'bills',
-      tone: 'orange',
-    },
-    {
-      id: 'report-issue',
-      route: '/requests/new',
-      title: 'Report Issue',
-      subtitle: 'Submit a maintenance request',
-      icon: 'requests',
-      tone: 'blue',
-    },
-  ];
+  private tenantQuickActions(userCountryCode?: string): QuickAction[] {
+    return [
+      {
+        id: 'report-payment',
+        route: '/payments/report',
+        title: 'Report Payment',
+        subtitle: this.countryProfiles.paymentMethodsLabel(userCountryCode),
+        icon: 'collected',
+        tone: 'green',
+      },
+      {
+        id: 'my-payments',
+        route: '/my-payments',
+        title: 'My Payments',
+        subtitle: 'View payment history',
+        icon: 'bills',
+        tone: 'orange',
+      },
+      {
+        id: 'report-issue',
+        route: '/requests/new',
+        title: 'Report Issue',
+        subtitle: 'Submit a maintenance request',
+        icon: 'requests',
+        tone: 'blue',
+      },
+    ];
+  }
 
   quickActions$ = toObservable(this.user).pipe(
     switchMap((user) => {
@@ -95,10 +100,10 @@ export class DashboardComponent {
               icon: 'properties' as Icon3dName,
               tone: 'green' as const,
             },
-            ...this.tenantQuickActions,
+            ...this.tenantQuickActions(user.countryCode),
           ]);
         }
-        return of(this.tenantQuickActions);
+        return of(this.tenantQuickActions(user.countryCode));
       }
 
       return this.propertyService.getByOwner(user.id).pipe(
@@ -130,8 +135,7 @@ export class DashboardComponent {
     }
 
     if (stats.outstandingRent > 0) {
-      const prefix = stats.currency === 'GMD' ? 'D' : `${stats.currency} `;
-      parts.push(`${prefix}${stats.outstandingRent.toLocaleString()} outstanding`);
+      parts.push(`${formatCurrency(stats.outstandingRent, stats.currency)} outstanding`);
     }
 
     if (stats.pendingPaymentReports > 0) {
@@ -170,15 +174,20 @@ export class DashboardComponent {
     return Math.min(100, Math.round((stats.collectedThisMonth / stats.expectedMonthlyRent) * 100));
   }
 
-  async sendRentReminder(due: RentDueTenant, currency: string): Promise<void> {
+  async sendRentReminder(due: RentDueTenant, currency: string, countryCode?: string): Promise<void> {
     const user = this.user();
     if (!user) return;
 
     try {
-      await this.rentReminders.sendFromDue(due, currency, {
-        id: user.id,
-        name: user.name?.trim() || 'Your landlord',
-      });
+      await this.rentReminders.sendFromDue(
+        due,
+        currency,
+        {
+          id: user.id,
+          name: user.name?.trim() || 'Your landlord',
+        },
+        countryCode ?? user.countryCode
+      );
       this.notifications.success('Reminder saved in RentBook');
     } catch {
       this.notifications.show('Could not send reminder. Try again.');

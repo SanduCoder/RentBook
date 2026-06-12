@@ -28,7 +28,9 @@
       <select formControlName="unitId" (change)="onUnitChange($any($event.target).value)">
         <option value="" disabled>Select unit</option>
         @for (unit of vacantUnits(); track unit.id) {
-          <option [value]="unit.id">{{ unit.name }} — D{{ unit.monthlyRent }}</option>
+          <option [value]="unit.id">
+            {{ unit.name }} — {{ unit.monthlyRent | currencyFormat: propertyCurrency() }}
+          </option>
         }
         @if (vacantUnits().length === 0) {
           <option value="" disabled>No vacant units</option>
@@ -44,7 +46,7 @@
 
   <label>
     Phone
-    <input type="tel" formControlName="phone" placeholder="+220 XXX XXXX" />
+    <input type="tel" formControlName="phone" [placeholder]="phonePlaceholderText()" />
   </label>
 
   <label>

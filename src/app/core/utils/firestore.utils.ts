@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
+import { localeForCurrency } from '../config/country-profiles.config';
 
 export function toDate(value: unknown, fallback?: unknown): Date {
   if (value instanceof Timestamp) {
@@ -25,9 +26,20 @@ export function stripUndefined<T extends Record<string, unknown>>(obj: T): Parti
   ) as Partial<T>;
 }
 
-export function formatCurrency(amount: number, currency = 'GMD'): string {
-  const symbol = currency === 'GMD' ? 'D' : currency;
-  return `${symbol}${amount.toLocaleString()}`;
+export function formatCurrency(amount: number, currency = 'GMD', locale?: string): string {
+  const resolvedLocale = locale ?? localeForCurrency(currency);
+  const fractionDigits = ['JPY', 'KRW', 'XOF', 'XAF', 'GMD'].includes(currency) ? 0 : 2;
+
+  try {
+    return new Intl.NumberFormat(resolvedLocale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toLocaleString(resolvedLocale)}`;
+  }
 }
 
 export function getMonthStart(date = new Date()): Date {

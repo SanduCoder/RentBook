@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { roleLabel } from '../../core/utils/role.utils';
 import { navigateBack } from '../../core/utils/navigate-back.util';
+import { phonePlaceholder as formatPhonePlaceholder } from '../../core/utils/country-detect.utils';
 import { Icon3dComponent } from '../../shared/components/icon-3d/icon-3d.component';
 
 @Component({
@@ -22,6 +23,10 @@ export class AccountComponent {
 
   user = this.auth.currentUser;
   roleLabel = roleLabel;
+
+  phonePlaceholderText(): string {
+    return formatPhonePlaceholder(this.user()?.countryCode);
+  }
 
   saving = signal(false);
   saved = signal(false);

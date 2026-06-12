@@ -10,6 +10,11 @@
   </header>
 
   @if (bills$ | async; as data) {
+    @if (data.mixedCurrencies) {
+      <p class="currency-warning">
+        Totals mix multiple currencies — the total below uses {{ data.currency }} only.
+      </p>
+    }
     @if (data.items.length > 0) {
       <div class="stat-cards">
         <div class="stat-card">
@@ -23,7 +28,11 @@
           <span class="stat-icon" aria-hidden="true">
             <app-icon-3d name="collected" />
           </span>
-          <span class="stat-count">{{ totalAmount(data) | currencyFormat: data.currency }}</span>
+          <span class="stat-count">
+            @if (data.mixedCurrencies) { — } @else {
+              {{ totalAmount(data) | currencyFormat: data.currency }}
+            }
+          </span>
           <span class="stat-label">Total</span>
         </div>
         <div class="stat-card">
@@ -48,7 +57,7 @@
         <app-empty-state
           icon="💧"
           title="No shared bills yet"
-          message="Split water, electricity, watchman salary, and other compound costs among households."
+          message="Split water, electricity, maintenance, and other shared property costs among households."
         >
           <a routerLink="/shared-bills/new" class="btn-primary">Add Shared Bill</a>
         </app-empty-state>
