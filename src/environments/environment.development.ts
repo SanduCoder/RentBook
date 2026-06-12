@@ -10,4 +10,6 @@ export const environment = {
     measurementId: 'G-VDE3009TTM',
   },
   appCheckRecaptchaSiteKey: '',
+  /** Set to `true` or a registered debug token when testing App Check locally. */
+  appCheckDebugToken: '' as string | boolean,
 };

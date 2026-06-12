@@ -5,8 +5,20 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function hasAppCheck() {
+      return request.app != null;
+    }
+
+    function canAccess() {
+      return isVerified() && hasAppCheck();
+    }
+
     function isPropertyOwner(propertyId) {
-      return isSignedIn() &&
+      return isVerified() &&
         get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId == request.auth.uid;
     }
 
@@ -23,14 +35,14 @@ service cloud.firestore {
     }
 
     function isAssignedTenant() {
-      return isSignedIn() &&
+      return isVerified() &&
         userDoc().role == 'tenant' &&
         userDoc().linkedPropertyId is string &&
         userDoc().tenantRecordId is string;
     }
 
     function isPendingTenantAssignment(ownerId) {
-      return isSignedIn() && resource.data.linkedOwnerId == ownerId &&
+      return isVerified() && resource.data.linkedOwnerId == ownerId &&
         (!('tenantRecordId' in resource.data) || resource.data.tenantRecordId == null);
     }
 
@@ -118,22 +130,24 @@ service cloud.firestore {
     }
 
     match /inviteCodes/{codeId} {
-      allow get: if isSignedIn() && (
+      allow get: if canAccess() && (
         resource.data.active == true ||
         resource.data.ownerId == request.auth.uid
       );
-      allow create: if isSignedIn() &&
+      allow create: if canAccess() &&
         request.resource.data.ownerId == request.auth.uid &&
         request.resource.data.active == true;
-      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow delete: if canAccess() && resource.data.ownerId == request.auth.uid;
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid == userId ||
-        resource.data.linkedOwnerId == request.auth.uid
+      allow read: if (
+        isSignedIn() && request.auth.uid == userId
+      ) || (
+        canAccess() && resource.data.linkedOwnerId == request.auth.uid
       );
       allow create: if isSignedIn() &&
+        hasAppCheck() &&
         request.auth.uid == userId &&
         request.resource.data.keys().hasOnly(['name', 'phone', 'email', 'role', 'createdAt', 'countryCode']) &&
         isValidRole(request.resource.data.role) &&
@@ -144,7 +158,7 @@ service cloud.firestore {
           !('countryCode' in request.resource.data) ||
           request.resource.data.countryCode is string
         );
-      allow update: if isSignedIn() && (
+      allow update: if canAccess() && (
         (
           request.auth.uid == userId && (
             profileOnlyUpdate() ||
@@ -166,24 +180,24 @@ service cloud.firestore {
     }
 
     match /properties/{propertyId} {
-      allow read: if isSignedIn() && (
+      allow read: if canAccess() && (
         resource.data.ownerId == request.auth.uid ||
         (
           isAssignedTenant() &&
           userDoc().linkedPropertyId == propertyId
         )
       );
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if canAccess() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if canAccess() && resource.data.ownerId == request.auth.uid;
     }
 
     match /units/{unitId} {
-      allow read: if isSignedIn() && (
+      allow read: if canAccess() && (
         isPropertyOwner(resource.data.propertyId) ||
         resource.data.status == 'vacant'
       );
-      allow create: if isSignedIn() && isPropertyOwner(request.resource.data.propertyId);
-      allow update: if isSignedIn() && (
+      allow create: if canAccess() && isPropertyOwner(request.resource.data.propertyId);
+      allow update: if canAccess() && (
         isPropertyOwner(resource.data.propertyId) ||
         (
           resource.data.status == 'vacant' &&
@@ -195,15 +209,15 @@ service cloud.firestore {
           )
         )
       );
-      allow delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
     }
 
     match /tenants/{tenantId} {
-      allow read: if isSignedIn() && (
+      allow read: if canAccess() && (
         isPropertyOwner(resource.data.propertyId) ||
         resource.data.userId == request.auth.uid
       );
-      allow create: if isSignedIn() && (
+      allow create: if canAccess() && (
         isPropertyOwner(request.resource.data.propertyId) ||
         (
           request.resource.data.userId == request.auth.uid &&
@@ -215,18 +229,18 @@ service cloud.firestore {
           )
         )
       );
-      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow update, delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
     }
 
     match /payments/{paymentId} {
-      allow read: if isSignedIn() && (
+      allow read: if canAccess() && (
         isPropertyOwner(resource.data.propertyId) ||
         (
           isAssignedTenant() &&
           resource.data.tenantId == userDoc().tenantRecordId
         )
       );
-      allow create: if isSignedIn() && (
+      allow create: if canAccess() && (
         isPropertyOwner(request.resource.data.propertyId) ||
         (
           isAssignedTenant() &&
@@ -237,25 +251,25 @@ service cloud.firestore {
           request.resource.data.recordedBy == request.auth.uid
         )
       );
-      allow update: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
-      allow delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow update: if canAccess() && isPropertyOwner(resource.data.propertyId);
+      allow delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
     }
 
     match /expenses/{expenseId} {
-      allow read: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
-      allow create: if isSignedIn() && isPropertyOwner(request.resource.data.propertyId);
-      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow read: if canAccess() && isPropertyOwner(resource.data.propertyId);
+      allow create: if canAccess() && isPropertyOwner(request.resource.data.propertyId);
+      allow update, delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
     }
 
     match /maintenanceRequests/{requestId} {
-      allow read: if isSignedIn() && (
+      allow read: if canAccess() && (
         isPropertyOwner(resource.data.propertyId) ||
         (
           isAssignedTenant() &&
           resource.data.tenantId == userDoc().tenantRecordId
         )
       );
-      allow create: if isSignedIn() && (
+      allow create: if canAccess() && (
         isPropertyOwner(request.resource.data.propertyId) ||
         (
           isAssignedTenant() &&
@@ -263,30 +277,30 @@ service cloud.firestore {
           request.resource.data.tenantId == userDoc().tenantRecordId
         )
       );
-      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow update, delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
     }
 
     match /sharedBills/{billId} {
-      allow read: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
-      allow create: if isSignedIn() && isPropertyOwner(request.resource.data.propertyId);
-      allow update, delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow read: if canAccess() && isPropertyOwner(resource.data.propertyId);
+      allow create: if canAccess() && isPropertyOwner(request.resource.data.propertyId);
+      allow update, delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
     }
 
     match /rentReminders/{reminderId} {
-      allow read: if isSignedIn() && (
+      allow read: if canAccess() && (
         isPropertyOwner(resource.data.propertyId) ||
         (
           isAssignedTenant() &&
           resource.data.tenantId == userDoc().tenantRecordId
         )
       );
-      allow create: if isSignedIn() &&
+      allow create: if canAccess() &&
         isPropertyOwner(request.resource.data.propertyId) &&
         request.resource.data.sentBy == request.auth.uid &&
         request.resource.data.read == false &&
         request.resource.data.tenantId is string &&
         request.resource.data.message is string;
-      allow update: if isSignedIn() && (
+      allow update: if canAccess() && (
         (
           isAssignedTenant() &&
           resource.data.tenantId == userDoc().tenantRecordId &&
@@ -295,7 +309,7 @@ service cloud.firestore {
         ) ||
         isPropertyOwner(resource.data.propertyId)
       );
-      allow delete: if isSignedIn() && isPropertyOwner(resource.data.propertyId);
+      allow delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
     }
   }
 }

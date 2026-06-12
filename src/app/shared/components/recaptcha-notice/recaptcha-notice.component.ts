@@ -34,5 +34,5 @@ import { environment } from '../../../../environments/environment';
   ],
 })
 export class RecaptchaNoticeComponent {
-  readonly enabled = environment.production && !!environment.appCheckRecaptchaSiteKey;
+  readonly enabled = !!environment.appCheckRecaptchaSiteKey?.trim();
 }

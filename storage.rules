@@ -2,12 +2,19 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /properties/{ownerId}/{propertyId}/{fileName} {
-      allow read: if request.auth != null && request.auth.uid == ownerId;
+      allow read: if request.auth != null
+        && request.auth.uid == ownerId
+        && request.auth.token.email_verified == true;
       allow write: if request.auth != null
         && request.auth.uid == ownerId
+        && request.auth.token.email_verified == true
+        && request.app != null
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null && request.auth.uid == ownerId;
+      allow delete: if request.auth != null
+        && request.auth.uid == ownerId
+        && request.auth.token.email_verified == true
+        && request.app != null;
     }
   }
 }

@@ -42,28 +42,35 @@ function createFirestore() {
   }
 }
 
-const appCheckProviders =
-  environment.appCheckRecaptchaSiteKey && environment.production
-    ? [
-        provideAppCheck(() =>
-          initializeAppCheck(getApp(), {
-            provider: new ReCaptchaV3Provider(environment.appCheckRecaptchaSiteKey),
-            isTokenAutoRefreshEnabled: true,
-          })
-        ),
-      ]
-    : [];
+const appCheckSiteKey = environment.appCheckRecaptchaSiteKey?.trim() ?? '';
+const debugToken = (environment as { appCheckDebugToken?: string | boolean }).appCheckDebugToken;
+const shouldInitAppCheck = !!appCheckSiteKey && (environment.production || !!debugToken);
 
-const pwaBootstrapProviders =
-  environment.production && environment.appCheckRecaptchaSiteKey
-    ? [
-        {
-          provide: APP_INITIALIZER,
-          multi: true,
-          useFactory: () => () => preloadRecaptcha(environment.appCheckRecaptchaSiteKey),
-        },
-      ]
-    : [];
+function createAppCheck() {
+  if (debugToken && !environment.production) {
+    (globalThis as typeof globalThis & { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean })
+      .FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken === true ? true : debugToken;
+  }
+
+  return initializeAppCheck(getApp(), {
+    provider: new ReCaptchaV3Provider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
+const appCheckProviders = shouldInitAppCheck
+  ? [provideAppCheck(() => createAppCheck())]
+  : [];
+
+const pwaBootstrapProviders = shouldInitAppCheck
+  ? [
+      {
+        provide: APP_INITIALIZER,
+        multi: true,
+        useFactory: () => () => preloadRecaptcha(appCheckSiteKey),
+      },
+    ]
+  : [];
 
 export const appConfig: ApplicationConfig = {
   providers: [

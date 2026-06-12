@@ -1,4 +1,5 @@
 import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '@angular/core';
+import { AppCheck } from '@angular/fire/app-check';
 import {
   Firestore,
   Timestamp,
@@ -18,6 +19,7 @@ import {
   generateInviteCode,
   normalizeInviteCode,
 } from '../models/invite-code.model';
+import { ensureAppCheckReady } from '../utils/app-check.utils';
 import { toDate } from '../utils/firestore.utils';
 import { TenantService } from './tenant.service';
 import { UnitService } from './unit.service';
@@ -25,6 +27,7 @@ import { UnitService } from './unit.service';
 @Injectable({ providedIn: 'root' })
 export class InviteCodeService {
   private firestore = inject(Firestore);
+  private appCheck = inject(AppCheck, { optional: true });
   private injector = inject(EnvironmentInjector);
   private tenantService = inject(TenantService);
   private unitService = inject(UnitService);
@@ -56,6 +59,7 @@ export class InviteCodeService {
   }
 
   async ensureOwnerCode(ownerId: string, ownerName: string): Promise<string> {
+    await ensureAppCheckReady(this.appCheck ?? null);
     const userSnap = await this.run((fs) => getDoc(doc(fs, 'users', ownerId)));
     const existingCode = userSnap.data()?.['ownerInviteCode'] as string | undefined;
     if (existingCode) return existingCode;
@@ -69,6 +73,7 @@ export class InviteCodeService {
     propertyId: string,
     propertyName: string
   ): Promise<string> {
+    await ensureAppCheckReady(this.appCheck ?? null);
     const propertySnap = await this.run((fs) => getDoc(doc(fs, 'properties', propertyId)));
     const existingCode = propertySnap.data()?.['inviteCode'] as string | undefined;
     if (existingCode) return existingCode;
@@ -77,6 +82,7 @@ export class InviteCodeService {
   }
 
   async regenerateOwnerCode(ownerId: string, ownerName: string): Promise<string> {
+    await ensureAppCheckReady(this.appCheck ?? null);
     const userSnap = await this.run((fs) => getDoc(doc(fs, 'users', ownerId)));
     const existingCode = userSnap.data()?.['ownerInviteCode'] as string | undefined;
     return this.replaceOwnerCode(ownerId, ownerName, existingCode);
@@ -88,6 +94,7 @@ export class InviteCodeService {
     propertyId: string,
     propertyName: string
   ): Promise<string> {
+    await ensureAppCheckReady(this.appCheck ?? null);
     const propertySnap = await this.run((fs) => getDoc(doc(fs, 'properties', propertyId)));
     const existingCode = propertySnap.data()?.['inviteCode'] as string | undefined;
     return this.replacePropertyCode(ownerId, ownerName, propertyId, propertyName, existingCode);
@@ -99,6 +106,7 @@ export class InviteCodeService {
     profile: { name: string; phone: string; email: string },
     unitId?: string
   ): Promise<RedeemInviteResult> {
+    await ensureAppCheckReady(this.appCheck ?? null);
     const invite = await this.getByCode(code);
     if (!invite) {
       throw new Error('Invalid or inactive invite code.');
