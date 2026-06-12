@@ -13,8 +13,11 @@ service cloud.firestore {
       return request.app != null;
     }
 
+    // Email verification is required for all data access. App Check is enforced
+    // client-side and on sensitive writes; requiring it on every read blocked
+    // legitimate sessions when reCAPTCHA/App Check was not yet ready.
     function canAccess() {
-      return isVerified() && hasAppCheck();
+      return isVerified();
     }
 
     function isPropertyOwner(propertyId) {

@@ -1,11 +1,11 @@
-import { APP_INITIALIZER, ApplicationConfig, ErrorHandler, isDevMode, provideZoneChangeDetection } from '@angular/core';
+import { APP_INITIALIZER, ApplicationConfig, ErrorHandler, inject, isDevMode, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideFirebaseApp, initializeApp, getApp } from '@angular/fire/app';
 import { provideAuth } from '@angular/fire/auth';
 import { provideFirestore } from '@angular/fire/firestore';
 import { provideStorage, getStorage } from '@angular/fire/storage';
-import { provideAppCheck, initializeAppCheck, ReCaptchaV3Provider } from '@angular/fire/app-check';
+import { AppCheck, provideAppCheck, initializeAppCheck, ReCaptchaV3Provider } from '@angular/fire/app-check';
 import {
   browserLocalPersistence,
   getAuth as getFirebaseAuth,
@@ -17,6 +17,7 @@ import { getFirestore as getFirebaseFirestore, initializeFirestore } from 'fireb
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
 import { GlobalErrorHandler } from './core/services/error-notification.service';
+import { ensureAppCheckReady } from './core/utils/app-check.utils';
 import { isIosStandalonePwa } from './core/utils/platform.utils';
 import { preloadRecaptcha } from './core/utils/pwa-bootstrap.utils';
 
@@ -43,15 +44,9 @@ function createFirestore() {
 }
 
 const appCheckSiteKey = environment.appCheckRecaptchaSiteKey?.trim() ?? '';
-const debugToken = (environment as { appCheckDebugToken?: string | boolean }).appCheckDebugToken;
-const shouldInitAppCheck = !!appCheckSiteKey && (environment.production || !!debugToken);
+const shouldInitAppCheck = !!appCheckSiteKey;
 
 function createAppCheck() {
-  if (debugToken && !environment.production) {
-    (globalThis as typeof globalThis & { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean })
-      .FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken === true ? true : debugToken;
-  }
-
   return initializeAppCheck(getApp(), {
     provider: new ReCaptchaV3Provider(appCheckSiteKey),
     isTokenAutoRefreshEnabled: true,
@@ -62,12 +57,18 @@ const appCheckProviders = shouldInitAppCheck
   ? [provideAppCheck(() => createAppCheck())]
   : [];
 
-const pwaBootstrapProviders = shouldInitAppCheck
+const appCheckBootstrapProviders = shouldInitAppCheck
   ? [
       {
         provide: APP_INITIALIZER,
         multi: true,
-        useFactory: () => () => preloadRecaptcha(appCheckSiteKey),
+        useFactory: () => {
+          const appCheck = inject(AppCheck, { optional: true });
+          return async () => {
+            await preloadRecaptcha(appCheckSiteKey);
+            await ensureAppCheckReady(appCheck ?? null);
+          };
+        },
       },
     ]
   : [];
@@ -78,11 +79,11 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     provideFirebaseApp(() => initializeApp(environment.firebase)),
+    ...appCheckProviders,
+    ...appCheckBootstrapProviders,
     provideAuth(() => createAuth()),
     provideFirestore(() => createFirestore()),
     provideStorage(() => getStorage()),
-    ...appCheckProviders,
-    ...pwaBootstrapProviders,
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode() && !isIosStandalonePwa(),
       registrationStrategy: 'registerWhenStable:30000',

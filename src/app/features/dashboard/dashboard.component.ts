@@ -2,7 +2,7 @@ import { AsyncPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { map, of, switchMap } from 'rxjs';
+import { catchError, map, of, switchMap } from 'rxjs';
 import { Property } from '../../core/models/property.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ErrorNotificationService } from '../../core/services/error-notification.service';
@@ -107,7 +107,8 @@ export class DashboardComponent {
       }
 
       return this.propertyService.getByOwner(user.id).pipe(
-        map((properties) => this.buildManagerQuickActions(properties))
+        map((properties) => this.buildManagerQuickActions(properties)),
+        catchError(() => of(this.buildManagerQuickActions([])))
       );
     })
   );
