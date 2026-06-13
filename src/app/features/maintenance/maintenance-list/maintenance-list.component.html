@@ -122,10 +122,7 @@
                     <div class="detail-text">
                       <span class="detail-label">Location</span>
                       <span class="detail-value">
-                        <span>{{ request.propertyName }}</span>
-                        @if (request.unitName) {
-                          <span>{{ request.unitName }}</span>
-                        }
+                        {{ request.propertyName }}@if (request.unitName) { · {{ request.unitName }} }
                       </span>
                     </div>
                   </div>
