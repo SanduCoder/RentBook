@@ -16,6 +16,7 @@ import { ExpenseService } from '../../../core/services/expense.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { ErrorNotificationService } from '../../../core/services/error-notification.service';
+import { BusyTracker } from '../../../core/utils/busy-tracker';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { Icon3dComponent } from '../../../shared/components/icon-3d/icon-3d.component';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
@@ -66,6 +67,7 @@ export class ExpenseListComponent {
   private notifications = inject(ErrorNotificationService);
 
   categoryLabels = EXPENSE_CATEGORY_LABELS;
+  busy = new BusyTracker();
 
   expenses$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '').pipe(
     switchMap((properties) => {
@@ -136,20 +138,24 @@ export class ExpenseListComponent {
   }
 
   async confirmPaid(expenseId: string): Promise<void> {
-    try {
-      await this.expenseService.confirmPaid(expenseId);
-      this.notifications.success('Marked as paid.');
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not update this expense. Try again.');
-    }
+    await this.busy.run(`settle-${expenseId}`, async () => {
+      try {
+        await this.expenseService.confirmPaid(expenseId);
+        this.notifications.success('Marked as paid.');
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not update this expense. Try again.');
+      }
+    });
   }
 
   async markUnpaid(expenseId: string): Promise<void> {
-    try {
-      await this.expenseService.markUnpaid(expenseId);
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not update this expense. Try again.');
-    }
+    await this.busy.run(`settle-${expenseId}`, async () => {
+      try {
+        await this.expenseService.markUnpaid(expenseId);
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not update this expense. Try again.');
+      }
+    });
   }
 
   async setShare(
@@ -157,14 +163,16 @@ export class ExpenseListComponent {
     tenantId: string,
     status: 'unpaid' | 'paid'
   ): Promise<void> {
-    try {
-      await this.expenseService.setShareStatus(expenseId, tenantId, status);
-      if (status === 'paid') {
-        this.notifications.success('Marked as paid.');
+    await this.busy.run(`settle-${expenseId}-${tenantId}`, async () => {
+      try {
+        await this.expenseService.setShareStatus(expenseId, tenantId, status);
+        if (status === 'paid') {
+          this.notifications.success('Marked as paid.');
+        }
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not update this expense. Try again.');
       }
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not update this expense. Try again.');
-    }
+    });
   }
 
   countByCategory(items: ExpenseListItem[], category: ExpenseCategory): number {

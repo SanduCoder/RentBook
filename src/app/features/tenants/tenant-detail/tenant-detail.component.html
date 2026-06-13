@@ -148,9 +148,9 @@
                 <span class="action-icon history">📄</span>
                 <span>Payment History</span>
               </button>
-              <button type="button" class="action-item" (click)="sendReminder(vm)">
+              <button type="button" class="action-item" [disabled]="busy.isBusy('remind-' + vm.tenant.id)" (click)="sendReminder(vm)">
                 <span class="action-icon reminder">🔔</span>
-                <span>Send Reminder</span>
+                <span>{{ busy.isBusy('remind-' + vm.tenant.id) ? 'Sending…' : 'Send Reminder' }}</span>
               </button>
               <a [href]="whatsAppLink(vm.tenant.phone, vm.countryCode)" target="_blank" class="action-item">
                 <span class="action-icon whatsapp">💬</span>

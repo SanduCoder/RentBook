@@ -55,8 +55,13 @@
                             <button type="button" (click)="editProperty(property.id, $event)">
                               Edit property
                             </button>
-                            <button type="button" class="danger" (click)="deleteProperty(property, $event)">
-                              Delete property
+                            <button
+                              type="button"
+                              class="danger"
+                              [disabled]="busy.isBusy('delete-' + property.id)"
+                              (click)="deleteProperty(property, $event)"
+                            >
+                              {{ busy.isBusy('delete-' + property.id) ? 'Deleting…' : 'Delete property' }}
                             </button>
                           </div>
                         }

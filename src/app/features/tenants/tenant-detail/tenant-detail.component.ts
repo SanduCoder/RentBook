@@ -14,6 +14,7 @@ import { PropertyService } from '../../../core/services/property.service';
 import { RentReminderService } from '../../../core/services/rent-reminder.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
+import { BusyTracker } from '../../../core/utils/busy-tracker';
 import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
 import { normalizePhone } from '../../../core/utils/phone.utils';
 import { TenantRentStatusInfo, getTenantRentStatus } from '../../../core/utils/tenant-status.utils';
@@ -60,6 +61,7 @@ export class TenantDetailComponent {
   methodLabels = PAYMENT_METHOD_LABELS;
   propertyTypeLabels = PROPERTY_TYPE_LABELS;
   recordedAt = paymentRecordedAt;
+  busy = new BusyTracker();
 
   locationLabel(address: string): string {
     const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
@@ -119,19 +121,21 @@ export class TenantDetailComponent {
     const user = this.auth.currentUser();
     if (!user) return;
 
-    try {
-      await this.rentReminders.sendForTenant(
-        data.tenant,
-        data.unitName,
-        data.currency,
-        data.rentStatus,
-        { id: user.id, name: user.name?.trim() || 'Your landlord' },
-        data.countryCode
-      );
-      this.notifications.success('Reminder saved in RentBook');
-    } catch {
-      this.notifications.show('Could not send reminder. Try again.');
-    }
+    await this.busy.run(`remind-${data.tenant.id}`, async () => {
+      try {
+        await this.rentReminders.sendForTenant(
+          data.tenant,
+          data.unitName,
+          data.currency,
+          data.rentStatus,
+          { id: user.id, name: user.name?.trim() || 'Your landlord' },
+          data.countryCode
+        );
+        this.notifications.success('Reminder saved in RentBook');
+      } catch {
+        this.notifications.show('Could not send reminder. Try again.');
+      }
+    });
   }
 
   scrollToHistory(): void {

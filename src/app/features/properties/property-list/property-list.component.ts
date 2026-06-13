@@ -7,6 +7,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { PROPERTY_TYPE_LABELS, Property, PropertyType } from '../../../core/models/property.model';
 import { PropertyService } from '../../../core/services/property.service';
 import { UnitService } from '../../../core/services/unit.service';
+import { BusyTracker } from '../../../core/utils/busy-tracker';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { Icon3dComponent } from '../../../shared/components/icon-3d/icon-3d.component';
 
@@ -37,6 +38,7 @@ export class PropertyListComponent {
   private router = inject(Router);
 
   openMenuId = signal<string | null>(null);
+  busy = new BusyTracker();
 
   properties$: Observable<PropertyWithStats[]> = toObservable(this.auth.currentUser).pipe(
     switchMap((user) => {
@@ -133,7 +135,7 @@ export class PropertyListComponent {
 
     if (!window.confirm(`Delete "${property.name}"? This cannot be undone.`)) return;
 
-    await this.propertyService.delete(property.id);
+    await this.busy.run(`delete-${property.id}`, () => this.propertyService.delete(property.id));
   }
 
   unitLabel(property: PropertyWithStats): string {

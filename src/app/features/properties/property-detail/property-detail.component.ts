@@ -47,6 +47,7 @@ import {
 import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
 import { PropertyActivity, propertyActivityLink } from '../../../core/utils/activity.utils';
 import { RentReminderService } from '../../../core/services/rent-reminder.service';
+import { BusyTracker } from '../../../core/utils/busy-tracker';
 import {
   PropertyRentDueSummary,
   RentDueTenant,
@@ -134,6 +135,7 @@ export class PropertyDetailComponent implements OnInit {
   savingTenant = signal(false);
   savingExpense = signal(false);
   savingBill = signal(false);
+  busy = new BusyTracker();
 
   propertyTypeLabels = PROPERTY_TYPE_LABELS;
 
@@ -423,8 +425,10 @@ export class PropertyDetailComponent implements OnInit {
 
     if (!window.confirm(`Delete "${property.name}"? This cannot be undone.`)) return;
 
-    await this.propertyService.delete(property.id);
-    this.router.navigate(['/properties']);
+    await this.busy.run(`delete-property-${property.id}`, async () => {
+      await this.propertyService.delete(property.id);
+      this.router.navigate(['/properties']);
+    });
   }
 
   setTab(tab: PropertyTab): void {
@@ -435,20 +439,22 @@ export class PropertyDetailComponent implements OnInit {
     const user = this.auth.currentUser();
     if (!user) return;
 
-    try {
-      await this.rentReminders.sendFromDue(
-        due,
-        currency,
-        {
-          id: user.id,
-          name: user.name?.trim() || 'Your landlord',
-        },
-        countryCode ?? user.countryCode
-      );
-      this.notifications.success('Reminder saved in RentBook');
-    } catch {
-      this.notifications.show('Could not send reminder. Try again.');
-    }
+    await this.busy.run(`remind-${due.tenantId}`, async () => {
+      try {
+        await this.rentReminders.sendFromDue(
+          due,
+          currency,
+          {
+            id: user.id,
+            name: user.name?.trim() || 'Your landlord',
+          },
+          countryCode ?? user.countryCode
+        );
+        this.notifications.success('Reminder saved in RentBook');
+      } catch {
+        this.notifications.show('Could not send reminder. Try again.');
+      }
+    });
   }
 
   locationLabel(address: string): string {
@@ -560,13 +566,15 @@ export class PropertyDetailComponent implements OnInit {
     }
     if (!window.confirm(`Delete "${unit.name}"? This cannot be undone.`)) return;
 
-    try {
-      const currentCount = (await firstValueFrom(this.units$)).length;
-      await this.unitService.delete(unit.id);
-      await this.propertyService.updateUnitCount(propertyId, Math.max(0, currentCount - 1));
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not delete unit.');
-    }
+    await this.busy.run(`delete-unit-${unit.id}`, async () => {
+      try {
+        const currentCount = (await firstValueFrom(this.units$)).length;
+        await this.unitService.delete(unit.id);
+        await this.propertyService.updateUnitCount(propertyId, Math.max(0, currentCount - 1));
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not delete unit.');
+      }
+    });
   }
 
   startEditTenant(tenant: Tenant): void {
@@ -632,11 +640,13 @@ export class PropertyDetailComponent implements OnInit {
   async deleteTenant(tenant: Tenant): Promise<void> {
     if (!window.confirm(`Remove "${tenant.name}" from this property?`)) return;
 
-    await this.unitService.update(tenant.unitId, { status: 'vacant' });
-    await this.tenantService.delete(tenant.id);
-    if (this.editingTenantId() === tenant.id) {
-      this.cancelTenantForm();
-    }
+    await this.busy.run(`delete-tenant-${tenant.id}`, async () => {
+      await this.unitService.update(tenant.unitId, { status: 'vacant' });
+      await this.tenantService.delete(tenant.id);
+      if (this.editingTenantId() === tenant.id) {
+        this.cancelTenantForm();
+      }
+    });
   }
 
   startEditExpense(expense: Expense): void {
@@ -681,10 +691,12 @@ export class PropertyDetailComponent implements OnInit {
   async deleteExpense(expense: Expense): Promise<void> {
     if (!window.confirm(`Delete this ${this.expenseLabels[expense.category]} expense?`)) return;
 
-    await this.expenseService.delete(expense.id);
-    if (this.editingExpenseId() === expense.id) {
-      this.cancelExpenseForm();
-    }
+    await this.busy.run(`delete-expense-${expense.id}`, async () => {
+      await this.expenseService.delete(expense.id);
+      if (this.editingExpenseId() === expense.id) {
+        this.cancelExpenseForm();
+      }
+    });
   }
 
   private toExpenseItem(
@@ -729,20 +741,24 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   async confirmExpensePaid(expenseId: string): Promise<void> {
-    try {
-      await this.expenseService.confirmPaid(expenseId);
-      this.notifications.success('Marked as paid.');
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not update this expense. Try again.');
-    }
+    await this.busy.run(`settle-${expenseId}`, async () => {
+      try {
+        await this.expenseService.confirmPaid(expenseId);
+        this.notifications.success('Marked as paid.');
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not update this expense. Try again.');
+      }
+    });
   }
 
   async markExpenseUnpaid(expenseId: string): Promise<void> {
-    try {
-      await this.expenseService.markUnpaid(expenseId);
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not update this expense. Try again.');
-    }
+    await this.busy.run(`settle-${expenseId}`, async () => {
+      try {
+        await this.expenseService.markUnpaid(expenseId);
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not update this expense. Try again.');
+      }
+    });
   }
 
   async setExpenseShare(
@@ -750,14 +766,16 @@ export class PropertyDetailComponent implements OnInit {
     tenantId: string,
     status: 'unpaid' | 'paid'
   ): Promise<void> {
-    try {
-      await this.expenseService.setShareStatus(expenseId, tenantId, status);
-      if (status === 'paid') {
-        this.notifications.success('Marked as paid.');
+    await this.busy.run(`settle-${expenseId}-${tenantId}`, async () => {
+      try {
+        await this.expenseService.setShareStatus(expenseId, tenantId, status);
+        if (status === 'paid') {
+          this.notifications.success('Marked as paid.');
+        }
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not update this expense. Try again.');
       }
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not update this expense. Try again.');
-    }
+    });
   }
 
   startEditBill(bill: SharedBill): void {
@@ -806,10 +824,12 @@ export class PropertyDetailComponent implements OnInit {
   async deleteBill(bill: SharedBill): Promise<void> {
     if (!window.confirm(`Delete this ${this.billLabels[bill.type]}?`)) return;
 
-    await this.sharedBillService.delete(bill.id);
-    if (this.editingBillId() === bill.id) {
-      this.cancelBillForm();
-    }
+    await this.busy.run(`delete-bill-${bill.id}`, async () => {
+      await this.sharedBillService.delete(bill.id);
+      if (this.editingBillId() === bill.id) {
+        this.cancelBillForm();
+      }
+    });
   }
 
 }

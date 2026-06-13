@@ -19,7 +19,9 @@
           @if (showPropertyMenu()) {
             <div class="hero-menu" (click)="$event.stopPropagation()">
               <a [routerLink]="['/properties', property.id, 'edit']">Edit property</a>
-              <button type="button" class="danger" (click)="deleteProperty(property)">Delete property</button>
+              <button type="button" class="danger" [disabled]="busy.isBusy('delete-property-' + property.id)" (click)="deleteProperty(property)">
+                {{ busy.isBusy('delete-property-' + property.id) ? 'Deleting…' : 'Delete property' }}
+              </button>
             </div>
           }
         </div>
@@ -141,9 +143,10 @@
                     <button
                       type="button"
                       class="reminder-btn"
+                      [disabled]="busy.isBusy('remind-' + due.tenantId)"
                       (click)="sendRentReminder(due, stats.currency, resolvePropertyCountryCode(property))"
                     >
-                      Send Reminder
+                      {{ busy.isBusy('remind-' + due.tenantId) ? 'Sending…' : 'Send Reminder' }}
                     </button>
                   }
                 </div>
@@ -313,7 +316,7 @@
                           <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
                         </svg>
                       </button>
-                      <button type="button" class="icon-action danger" aria-label="Delete unit" (click)="deleteUnit(unit, property.id)">
+                      <button type="button" class="icon-action danger" aria-label="Delete unit" [disabled]="busy.isBusy('delete-unit-' + unit.id)" (click)="deleteUnit(unit, property.id)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
                         </svg>
@@ -424,7 +427,7 @@
                             <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
                           </svg>
                         </button>
-                        <button type="button" class="icon-action danger" aria-label="Delete tenant" (click)="deleteTenant(item.tenant)">
+                        <button type="button" class="icon-action danger" aria-label="Delete tenant" [disabled]="busy.isBusy('delete-tenant-' + item.tenant.id)" (click)="deleteTenant(item.tenant)">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
                           </svg>
@@ -501,7 +504,7 @@
                           <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
                         </svg>
                       </button>
-                      <button type="button" class="icon-action danger" aria-label="Delete expense" (click)="deleteExpense(expense)">
+                      <button type="button" class="icon-action danger" aria-label="Delete expense" [disabled]="busy.isBusy('delete-expense-' + expense.id)" (click)="deleteExpense(expense)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
                         </svg>
@@ -521,13 +524,13 @@
                           <div class="settle-actions">
                             @if (expense.settlementStatus === 'paid') {
                               <span class="settle-chip paid">Paid</span>
-                              <button type="button" class="settle-link" (click)="markExpenseUnpaid(expense.id)">Mark unpaid</button>
+                              <button type="button" class="settle-link" [disabled]="busy.isBusy('settle-' + expense.id)" (click)="markExpenseUnpaid(expense.id)">Mark unpaid</button>
                             } @else if (expense.settlementStatus === 'pending_confirmation') {
                               <span class="settle-chip pending">Tenant marked paid</span>
-                              <button type="button" class="settle-btn" (click)="confirmExpensePaid(expense.id)">Confirm paid</button>
+                              <button type="button" class="settle-btn" [disabled]="busy.isBusy('settle-' + expense.id)" (click)="confirmExpensePaid(expense.id)">{{ busy.isBusy('settle-' + expense.id) ? 'Saving…' : 'Confirm paid' }}</button>
                             } @else {
                               <span class="settle-chip unpaid">Unpaid</span>
-                              <button type="button" class="settle-btn ghost" (click)="confirmExpensePaid(expense.id)">Mark paid</button>
+                              <button type="button" class="settle-btn ghost" [disabled]="busy.isBusy('settle-' + expense.id)" (click)="confirmExpensePaid(expense.id)">{{ busy.isBusy('settle-' + expense.id) ? 'Saving…' : 'Mark paid' }}</button>
                             }
                           </div>
                         }
@@ -540,13 +543,13 @@
                                 <div class="settle-actions">
                                   @if (share.status === 'paid') {
                                     <span class="settle-chip paid">Paid</span>
-                                    <button type="button" class="settle-link" (click)="setExpenseShare(expense.id, share.tenantId, 'unpaid')">Reopen</button>
+                                    <button type="button" class="settle-link" [disabled]="busy.isBusy('settle-' + expense.id + '-' + share.tenantId)" (click)="setExpenseShare(expense.id, share.tenantId, 'unpaid')">Reopen</button>
                                   } @else if (share.status === 'pending_confirmation') {
                                     <span class="settle-chip pending">Marked paid</span>
-                                    <button type="button" class="settle-btn" (click)="setExpenseShare(expense.id, share.tenantId, 'paid')">Confirm</button>
+                                    <button type="button" class="settle-btn" [disabled]="busy.isBusy('settle-' + expense.id + '-' + share.tenantId)" (click)="setExpenseShare(expense.id, share.tenantId, 'paid')">{{ busy.isBusy('settle-' + expense.id + '-' + share.tenantId) ? 'Saving…' : 'Confirm' }}</button>
                                   } @else {
                                     <span class="settle-chip unpaid">Unpaid</span>
-                                    <button type="button" class="settle-btn ghost" (click)="setExpenseShare(expense.id, share.tenantId, 'paid')">Mark paid</button>
+                                    <button type="button" class="settle-btn ghost" [disabled]="busy.isBusy('settle-' + expense.id + '-' + share.tenantId)" (click)="setExpenseShare(expense.id, share.tenantId, 'paid')">{{ busy.isBusy('settle-' + expense.id + '-' + share.tenantId) ? 'Saving…' : 'Mark paid' }}</button>
                                   }
                                 </div>
                               </li>
@@ -631,7 +634,7 @@
                           <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
                         </svg>
                       </button>
-                      <button type="button" class="icon-action danger" aria-label="Delete bill" (click)="deleteBill(bill)">
+                      <button type="button" class="icon-action danger" aria-label="Delete bill" [disabled]="busy.isBusy('delete-bill-' + bill.id)" (click)="deleteBill(bill)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
                         </svg>

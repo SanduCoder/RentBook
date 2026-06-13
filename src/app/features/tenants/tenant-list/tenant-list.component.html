@@ -287,8 +287,8 @@
                         </div>
 
                         @if (canSendReminder(item.rentStatus) && item.tenant.phone) {
-                          <button type="button" class="remind-btn" (click)="sendReminder(item)">
-                            Remind
+                          <button type="button" class="remind-btn" [disabled]="busy.isBusy('remind-' + item.tenant.id)" (click)="sendReminder(item)">
+                            {{ busy.isBusy('remind-' + item.tenant.id) ? 'Sending…' : 'Remind' }}
                           </button>
                         }
                       </div>
@@ -298,12 +298,10 @@
               </ul>
             </section>
           }
+
+          <a routerLink="/tenants/new" class="add-tenant-link">+ Add another tenant</a>
         }
       }
     }
-  </div>
-
-  <div class="footer-action">
-    <a routerLink="/tenants/new" class="add-tenant-btn">+ Add Tenant</a>
   </div>
 </div>

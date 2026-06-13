@@ -17,6 +17,7 @@ import { PendingTenantUser, UserService } from '../../../core/services/user.serv
 import { TenantService } from '../../../core/services/tenant.service';
 import { UnitService } from '../../../core/services/unit.service';
 import { getAvatarColors, getInitials } from '../../../core/utils/avatar.utils';
+import { BusyTracker } from '../../../core/utils/busy-tracker';
 import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
 import {
   TenantRentStatus,
@@ -93,6 +94,7 @@ export class TenantListComponent {
   assigningUserId = signal<string | null>(null);
   assignError = signal('');
   assigning = signal(false);
+  busy = new BusyTracker();
   assignMode = signal<'new' | 'existing'>('new');
   selectedExistingTenantId = signal('');
   suggestedTenantId = signal('');
@@ -386,18 +388,20 @@ export class TenantListComponent {
     const user = this.auth.currentUser();
     if (!user) return;
 
-    try {
-      await this.rentReminders.sendForTenant(
-        item.tenant,
-        item.unitName,
-        item.currency,
-        item.rentStatus,
-        { id: user.id, name: user.name?.trim() || 'Your landlord' },
-        item.countryCode
-      );
-      this.notifications.success('Reminder saved in RentBook');
-    } catch {
-      this.notifications.show('Could not send reminder. Try again.');
-    }
+    await this.busy.run(`remind-${item.tenant.id}`, async () => {
+      try {
+        await this.rentReminders.sendForTenant(
+          item.tenant,
+          item.unitName,
+          item.currency,
+          item.rentStatus,
+          { id: user.id, name: user.name?.trim() || 'Your landlord' },
+          item.countryCode
+        );
+        this.notifications.success('Reminder saved in RentBook');
+      } catch {
+        this.notifications.show('Could not send reminder. Try again.');
+      }
+    });
   }
 }

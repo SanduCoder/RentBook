@@ -29,6 +29,7 @@ import { CountryProfileService } from '../../core/services/country-profile.servi
 import { dashboardActivityLink } from '../../core/utils/activity.utils';
 import { formatCurrency } from '../../core/utils/firestore.utils';
 import { canManageTenants, hasPendingTenancyLink, isTenancyLinked } from '../../core/utils/role.utils';
+import { BusyTracker } from '../../core/utils/busy-tracker';
 import { RentDueTenant } from '../../core/utils/tenant-status.utils';
 import { Icon3dComponent, Icon3dName } from '../../shared/components/icon-3d/icon-3d.component';
 import { CurrencyFormatPipe } from '../../shared/pipes/currency-format.pipe';
@@ -79,6 +80,7 @@ export class DashboardComponent {
 
   expenseCategoryLabels = EXPENSE_CATEGORY_LABELS;
   expenseSettlementLabels = EXPENSE_SETTLEMENT_LABELS;
+  busy = new BusyTracker();
   user = this.auth.currentUser;
   stats$ = this.dashboard.getStats();
   activity$ = this.dashboard.getRecentActivity();
@@ -260,28 +262,32 @@ export class DashboardComponent {
     const user = this.user();
     if (!user) return;
 
-    try {
-      await this.rentReminders.sendFromDue(
-        due,
-        currency,
-        {
-          id: user.id,
-          name: user.name?.trim() || 'Your landlord',
-        },
-        countryCode ?? user.countryCode
-      );
-      this.notifications.success('Reminder saved in RentBook');
-    } catch {
-      this.notifications.show('Could not send reminder. Try again.');
-    }
+    await this.busy.run(`remind-${due.tenantId}`, async () => {
+      try {
+        await this.rentReminders.sendFromDue(
+          due,
+          currency,
+          {
+            id: user.id,
+            name: user.name?.trim() || 'Your landlord',
+          },
+          countryCode ?? user.countryCode
+        );
+        this.notifications.success('Reminder saved in RentBook');
+      } catch {
+        this.notifications.show('Could not send reminder. Try again.');
+      }
+    });
   }
 
   async dismissReminder(reminderId: string): Promise<void> {
-    try {
-      await this.rentReminders.markAsRead(reminderId);
-    } catch {
-      this.notifications.show('Could not dismiss reminder.');
-    }
+    await this.busy.run(`dismiss-${reminderId}`, async () => {
+      try {
+        await this.rentReminders.markAsRead(reminderId);
+      } catch {
+        this.notifications.show('Could not dismiss reminder.');
+      }
+    });
   }
 
   activityIcon(item: ActivityItem): string {
@@ -336,30 +342,34 @@ export class DashboardComponent {
   }
 
   async markExpensePaid(expense: Expense): Promise<void> {
-    const tenantId = this.user()?.tenantRecordId;
-    try {
-      if (this.isMySplit(expense) && tenantId) {
-        await this.expenseService.setShareStatus(expense.id, tenantId, 'pending_confirmation');
-      } else {
-        await this.expenseService.tenantMarkPaid(expense.id);
+    await this.busy.run(`settle-${expense.id}`, async () => {
+      const tenantId = this.user()?.tenantRecordId;
+      try {
+        if (this.isMySplit(expense) && tenantId) {
+          await this.expenseService.setShareStatus(expense.id, tenantId, 'pending_confirmation');
+        } else {
+          await this.expenseService.tenantMarkPaid(expense.id);
+        }
+        this.notifications.success('Marked as paid. Your landlord will confirm it.');
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not update this expense. Try again.');
       }
-      this.notifications.success('Marked as paid. Your landlord will confirm it.');
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not update this expense. Try again.');
-    }
+    });
   }
 
   async undoExpensePaid(expense: Expense): Promise<void> {
-    const tenantId = this.user()?.tenantRecordId;
-    try {
-      if (this.isMySplit(expense) && tenantId) {
-        await this.expenseService.setShareStatus(expense.id, tenantId, 'unpaid');
-      } else {
-        await this.expenseService.tenantUndoPaid(expense.id);
+    await this.busy.run(`settle-${expense.id}`, async () => {
+      const tenantId = this.user()?.tenantRecordId;
+      try {
+        if (this.isMySplit(expense) && tenantId) {
+          await this.expenseService.setShareStatus(expense.id, tenantId, 'unpaid');
+        } else {
+          await this.expenseService.tenantUndoPaid(expense.id);
+        }
+      } catch (err) {
+        this.notifications.handleError(err, 'Could not update this expense. Try again.');
       }
-    } catch (err) {
-      this.notifications.handleError(err, 'Could not update this expense. Try again.');
-    }
+    });
   }
 
   private buildManagerQuickActions(properties: Property[]): QuickAction[] {

@@ -69,8 +69,8 @@
               </p>
               <div class="reminder-actions">
                 <a routerLink="/payments/report" class="btn-primary btn-sm">Report Payment</a>
-                <button type="button" class="btn-secondary btn-sm" (click)="dismissReminder(reminder.id)">
-                  Dismiss
+                <button type="button" class="btn-secondary btn-sm" [disabled]="busy.isBusy('dismiss-' + reminder.id)" (click)="dismissReminder(reminder.id)">
+                  {{ busy.isBusy('dismiss-' + reminder.id) ? 'Dismissing…' : 'Dismiss' }}
                 </button>
               </div>
             </article>
@@ -189,8 +189,8 @@
               <span class="metric-note">{{ stats.rentDue.dueThisWeekCount }} tenants due this week</span>
             }
             @if (due.isUnpaid && due.phone) {
-              <button type="button" class="reminder-btn" (click)="sendRentReminder(due, stats.currency, stats.countryCode)">
-                Send Reminder
+              <button type="button" class="reminder-btn" [disabled]="busy.isBusy('remind-' + due.tenantId)" (click)="sendRentReminder(due, stats.currency, stats.countryCode)">
+                {{ busy.isBusy('remind-' + due.tenantId) ? 'Sending…' : 'Send Reminder' }}
               </button>
             }
           </div>
@@ -327,11 +327,11 @@
                     } @else if (myStatus(expense) === 'pending_confirmation') {
                       <span class="settle-row">
                         <span class="settle-chip pending">Awaiting confirmation</span>
-                        <button type="button" class="settle-link" (click)="undoExpensePaid(expense)">Undo</button>
+                        <button type="button" class="settle-link" [disabled]="busy.isBusy('settle-' + expense.id)" (click)="undoExpensePaid(expense)">Undo</button>
                       </span>
                     } @else {
-                      <button type="button" class="settle-btn" (click)="markExpensePaid(expense)">
-                        Mark as paid
+                      <button type="button" class="settle-btn" [disabled]="busy.isBusy('settle-' + expense.id)" (click)="markExpensePaid(expense)">
+                        {{ busy.isBusy('settle-' + expense.id) ? 'Saving…' : 'Mark as paid' }}
                       </button>
                     }
                   }
