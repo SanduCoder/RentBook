@@ -351,7 +351,13 @@
   <section class="activity-section">
     <div class="section-header">
       <h2>Recent Activity</h2>
-      <a [routerLink]="canManage() ? '/requests' : '/my-payments'" class="view-all">View all</a>
+      @if (activity$ | async; as activities) {
+        @if (showActivityExpand(activities, activityExpanded())) {
+          <button type="button" class="view-all" (click)="activityExpanded.set(true)">View all</button>
+        } @else if (showActivityCollapse(activities, activityExpanded())) {
+          <button type="button" class="view-all" (click)="activityExpanded.set(false)">View less</button>
+        }
+      }
     </div>
 
     @if (activity$ | async; as activities) {
@@ -367,7 +373,7 @@
         </div>
       } @else {
         <ul class="activity-list">
-          @for (item of activities; track item.id) {
+          @for (item of visibleActivities(activities, activityExpanded()); track item.id) {
             <li>
               @let route = activityLink(item, { isTenant: !canManage() });
               <a

@@ -63,7 +63,7 @@
         </app-empty-state>
       } @else {
         <ul class="item-list">
-          @for (payment of data.items; track payment.id) {
+          @for (payment of visiblePayments(data.items, listExpanded()); track payment.id) {
             <li [id]="paymentDomId(payment.id)">
               <article class="record-card">
                 <div class="card-header">
@@ -156,6 +156,16 @@
             </li>
           }
         </ul>
+
+        @if (showPaymentsExpand(data.items, listExpanded())) {
+          <div class="list-preview-toggle">
+            <button type="button" class="view-all" (click)="listExpanded.set(true)">View all</button>
+          </div>
+        } @else if (showPaymentsCollapse(data.items, listExpanded())) {
+          <div class="list-preview-toggle">
+            <button type="button" class="view-all" (click)="listExpanded.set(false)">View less</button>
+          </div>
+        }
 
         <div class="footer-cta">
           <a routerLink="/payments/new" class="cta-btn">+ Record Payment</a>

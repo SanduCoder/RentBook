@@ -348,6 +348,34 @@
   .section {
     margin: 0 1rem;
   }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.875rem;
+
+    h2 {
+      margin: 0;
+      font-size: 1.0625rem;
+      font-weight: 700;
+    }
+  }
+
+  .view-all {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1b8a5a;
+    text-decoration: none;
+
+    &:is(button) {
+      border: none;
+      background: none;
+      padding: 0;
+      cursor: pointer;
+      font: inherit;
+    }
+  }
   
   .empty-text {
     color: var(--text-secondary);

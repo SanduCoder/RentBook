@@ -164,12 +164,19 @@
           </section>
 
           <section class="section" id="payment-history">
-            <h2>Payment History</h2>
+            <div class="section-header">
+              <h2>Payment History</h2>
+              @if (showPaymentsExpand(vm.payments, paymentsExpanded())) {
+                <button type="button" class="view-all" (click)="paymentsExpanded.set(true)">View all</button>
+              } @else if (showPaymentsCollapse(vm.payments, paymentsExpanded())) {
+                <button type="button" class="view-all" (click)="paymentsExpanded.set(false)">View less</button>
+              }
+            </div>
             @if (vm.payments.length === 0) {
               <p class="empty-text">No payments recorded yet.</p>
             } @else {
               <ul class="payment-list">
-                @for (payment of vm.payments; track payment.id) {
+                @for (payment of visiblePayments(vm.payments, paymentsExpanded()); track payment.id) {
                   <li>
                     <div>
                       <span class="amount">{{ payment.amount | currencyFormat: vm.currency }}</span>

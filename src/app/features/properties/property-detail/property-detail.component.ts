@@ -46,6 +46,11 @@ import {
 } from '../../../core/utils/payment-stats.utils';
 import { PAYMENT_METHOD_LABELS } from '../../../core/models/payment.model';
 import { PropertyActivity, propertyActivityLink } from '../../../core/utils/activity.utils';
+import {
+  showListCollapse,
+  showListExpand,
+  visibleListItems,
+} from '../../../core/utils/list-preview.utils';
 import { RentReminderService } from '../../../core/services/rent-reminder.service';
 import { BusyTracker } from '../../../core/utils/busy-tracker';
 import {
@@ -500,6 +505,10 @@ export class PropertyDetailComponent implements OnInit {
   }
 
   activityLink = propertyActivityLink;
+  activityExpanded = signal(false);
+  visibleActivities = visibleListItems;
+  showActivityExpand = showListExpand;
+  showActivityCollapse = showListCollapse;
 
   tenantUnitOptions(units: Unit[], tenant?: Tenant): Unit[] {
     if (!tenant) return units.filter((u) => u.status === 'vacant');

@@ -75,10 +75,14 @@
     <section class="recent-payments" aria-label="Recent payments">
       <div class="recent-payments-head">
         <h2>Recent Payments</h2>
-        <a routerLink="/my-payments" class="view-all">View all</a>
+        @if (showRecentPaymentsExpand(recentPayments(), recentPaymentsExpanded())) {
+          <button type="button" class="view-all" (click)="recentPaymentsExpanded.set(true)">View all</button>
+        } @else if (showRecentPaymentsCollapse(recentPayments(), recentPaymentsExpanded())) {
+          <button type="button" class="view-all" (click)="recentPaymentsExpanded.set(false)">View less</button>
+        }
       </div>
       <ul class="recent-payments-list">
-        @for (payment of recentPayments(); track payment.id) {
+        @for (payment of visibleRecentPayments(recentPayments(), recentPaymentsExpanded()); track payment.id) {
           <li>
             <div class="recent-payment-row">
               <div>

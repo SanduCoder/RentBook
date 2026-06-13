@@ -1,5 +1,5 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, combineLatest, map, of, startWith, switchMap } from 'rxjs';
 import { Payment } from '../../../core/models/payment.model';
@@ -21,6 +21,11 @@ import { TenantRentStatusInfo, getTenantRentStatus } from '../../../core/utils/t
 import { getTenantMonthBalance, TenantMonthBalance } from '../../../core/utils/payment-stats.utils';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 import { PAYMENT_METHOD_LABELS, paymentRecordedAt, paymentRecordedByLabel } from '../../../core/models/payment.model';
+import {
+  showListCollapse,
+  showListExpand,
+  visibleListItems,
+} from '../../../core/utils/list-preview.utils';
 
 interface TenantDetailData {
   tenant: Tenant;
@@ -62,6 +67,10 @@ export class TenantDetailComponent {
   propertyTypeLabels = PROPERTY_TYPE_LABELS;
   recordedAt = paymentRecordedAt;
   busy = new BusyTracker();
+  paymentsExpanded = signal(false);
+  visiblePayments = visibleListItems;
+  showPaymentsExpand = showListExpand;
+  showPaymentsCollapse = showListCollapse;
 
   locationLabel(address: string): string {
     const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
@@ -89,7 +98,9 @@ export class TenantDetailComponent {
               status: 'ready',
               data: {
                 tenant,
-                payments,
+                payments: [...payments].sort(
+                  (a, b) => paymentRecordedAt(b).getTime() - paymentRecordedAt(a).getTime()
+                ),
                 property,
                 unit,
                 rentStatus: getTenantRentStatus(tenant, payments),

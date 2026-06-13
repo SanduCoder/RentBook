@@ -378,6 +378,14 @@
     font-weight: 600;
     color: #1b8a5a;
     text-decoration: none;
+
+    &:is(button) {
+      border: none;
+      background: none;
+      padding: 0;
+      cursor: pointer;
+      font: inherit;
+    }
   }
 
   .activity-list {

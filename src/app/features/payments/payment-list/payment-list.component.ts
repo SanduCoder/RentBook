@@ -4,6 +4,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { filter, map, switchMap, take } from 'rxjs';
 import { listItemDomId, scrollToListItem } from '../../../core/utils/list-focus.utils';
+import {
+  showListCollapse,
+  showListExpand,
+  visibleListItems,
+} from '../../../core/utils/list-preview.utils';
 import { CountryProfileService } from '../../../core/services/country-profile.service';
 import { resolveOwnerListCurrency } from '../../../core/utils/currency-aggregation.utils';
 import { AuthService } from '../../../core/services/auth.service';
@@ -48,6 +53,10 @@ export class PaymentListComponent implements OnInit {
   paymentMethodsHint = this.countryProfiles.paymentMethodsLabel(this.auth.currentUser()?.countryCode);
   statusLabels = PAYMENT_STATUS_LABELS;
   actionPaymentId = signal<string | null>(null);
+  listExpanded = signal(false);
+  visiblePayments = visibleListItems;
+  showPaymentsExpand = showListExpand;
+  showPaymentsCollapse = showListCollapse;
   paymentDomId = (id: string) => listItemDomId('payment', id);
   recordedAt = paymentRecordedAt;
 
@@ -78,7 +87,10 @@ export class PaymentListComponent implements OnInit {
         ),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe((id) => scrollToListItem(this.paymentDomId(id)));
+      .subscribe((id) => {
+        this.listExpanded.set(true);
+        scrollToListItem(this.paymentDomId(id));
+      });
   }
 
   totalAmount(data: PaymentListData): number {

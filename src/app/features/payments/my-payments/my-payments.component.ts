@@ -1,9 +1,14 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, filter, map, of, switchMap, take } from 'rxjs';
 import { listItemDomId, scrollToListItem } from '../../../core/utils/list-focus.utils';
+import {
+  showListCollapse,
+  showListExpand,
+  visibleListItems,
+} from '../../../core/utils/list-preview.utils';
 import { defaultCurrency } from '../../../core/config/country-profiles.config';
 import { AuthService } from '../../../core/services/auth.service';
 import {
@@ -49,6 +54,10 @@ export class MyPaymentsComponent implements OnInit {
   statusLabels = PAYMENT_STATUS_LABELS;
   paymentDomId = (id: string) => listItemDomId('payment', id);
   recordedAt = paymentRecordedAt;
+  listExpanded = signal(false);
+  visiblePayments = visibleListItems;
+  showPaymentsExpand = showListExpand;
+  showPaymentsCollapse = showListCollapse;
 
   payments$ = of(this.auth.currentUser()).pipe(
     switchMap((user) => {
@@ -92,7 +101,10 @@ export class MyPaymentsComponent implements OnInit {
         ),
         takeUntilDestroyed(this.destroyRef)
       )
-      .subscribe((id) => scrollToListItem(this.paymentDomId(id)));
+      .subscribe((id) => {
+        this.listExpanded.set(true);
+        scrollToListItem(this.paymentDomId(id));
+      });
   }
 
   pendingCount(items: Payment[]): number {

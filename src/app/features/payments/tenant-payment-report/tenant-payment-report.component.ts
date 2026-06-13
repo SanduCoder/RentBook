@@ -18,6 +18,11 @@ import { PaymentMethod, Payment, PAYMENT_STATUS_LABELS, paymentRecordedAt, payme
 import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
 import { isTenancyLinked } from '../../../core/utils/role.utils';
 import { getTenantMonthBalance } from '../../../core/utils/payment-stats.utils';
+import {
+  showListCollapse,
+  showListExpand,
+  visibleListItems,
+} from '../../../core/utils/list-preview.utils';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 
@@ -48,6 +53,10 @@ export class TenantPaymentReportComponent implements OnInit {
   currency = signal(defaultCurrency());
   methods = signal<PaymentMethodOption[]>(this.countryProfiles.paymentMethodsForUser());
   recentPayments = signal<Payment[]>([]);
+  recentPaymentsExpanded = signal(false);
+  visibleRecentPayments = visibleListItems;
+  showRecentPaymentsExpand = showListExpand;
+  showRecentPaymentsCollapse = showListCollapse;
   landlordId = signal<string | undefined>(undefined);
   statusLabels = PAYMENT_STATUS_LABELS;
 
@@ -105,7 +114,9 @@ export class TenantPaymentReportComponent implements OnInit {
     this.monthlyRent.set(tenant.monthlyRent);
     this.paidThisMonth.set(monthBalance.paidThisMonth);
     this.balanceRemaining.set(monthBalance.balanceRemaining);
-    this.recentPayments.set(payments.slice(0, 5));
+    this.recentPayments.set(
+      [...payments].sort((a, b) => paymentRecordedAt(b).getTime() - paymentRecordedAt(a).getTime())
+    );
     this.landlordId.set(property?.ownerId ?? this.auth.currentUser()?.linkedOwnerId);
 
     if (!this.form.controls.amount.dirty) {

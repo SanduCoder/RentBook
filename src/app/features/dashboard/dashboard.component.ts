@@ -1,5 +1,5 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { catchError, combineLatest, map, of, switchMap } from 'rxjs';
@@ -27,6 +27,11 @@ import { RentReminderService } from '../../core/services/rent-reminder.service';
 import { ActivityItem, DashboardService, DashboardStats } from '../../core/services/dashboard.service';
 import { CountryProfileService } from '../../core/services/country-profile.service';
 import { dashboardActivityLink } from '../../core/utils/activity.utils';
+import {
+  showListCollapse,
+  showListExpand,
+  visibleListItems,
+} from '../../core/utils/list-preview.utils';
 import { formatCurrency } from '../../core/utils/firestore.utils';
 import { canManageTenants, hasPendingTenancyLink, isTenancyLinked } from '../../core/utils/role.utils';
 import { BusyTracker } from '../../core/utils/busy-tracker';
@@ -84,6 +89,10 @@ export class DashboardComponent {
   user = this.auth.currentUser;
   stats$ = this.dashboard.getStats();
   activity$ = this.dashboard.getRecentActivity();
+  activityExpanded = signal(false);
+  visibleActivities = visibleListItems;
+  showActivityExpand = showListExpand;
+  showActivityCollapse = showListCollapse;
   tenantHome$ = toObservable(this.user).pipe(
     switchMap((user) => {
       if (!user || !isTenancyLinked(user) || !user.tenantRecordId) {
