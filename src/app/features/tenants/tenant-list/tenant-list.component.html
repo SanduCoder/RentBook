@@ -91,7 +91,7 @@
                   <button
                     type="button"
                     class="assign-toggle"
-                    (click)="startAssign(user.id)"
+                    (click)="startAssign(user)"
                   >
                     {{ assigningUserId() === user.id ? 'Cancel' : 'Assign' }}
                   </button>
@@ -107,60 +107,113 @@
                       <p class="assign-error">{{ assignError() }}</p>
                     }
 
-                    <label class="assign-field">
-                      <span>Property</span>
-                      <select
-                        formControlName="propertyId"
-                        (change)="onAssignPropertyChange(assignForm.controls.propertyId.value)"
+                    <div class="assign-mode">
+                      <button
+                        type="button"
+                        class="assign-mode-btn"
+                        [class.active]="assignMode() === 'existing'"
+                        [disabled]="unlinkedTenants().length === 0"
+                        (click)="setAssignMode('existing')"
                       >
-                        <option value="">Select property</option>
-                        @if (properties$ | async; as properties) {
-                          @for (property of properties; track property.id) {
-                            <option [value]="property.id">{{ property.name }}</option>
-                          }
-                        }
-                      </select>
-                    </label>
-
-                    <label class="assign-field">
-                      <span>Unit</span>
-                      <select
-                        formControlName="unitId"
-                        (change)="onAssignUnitSelected(assignForm.controls.unitId.value)"
+                        Link tenant I added
+                      </button>
+                      <button
+                        type="button"
+                        class="assign-mode-btn"
+                        [class.active]="assignMode() === 'new'"
+                        (click)="setAssignMode('new')"
                       >
-                        <option value="">Select vacant unit</option>
-                        @for (unit of vacantUnits(); track unit.id) {
-                          <option [value]="unit.id">{{ unit.name }}</option>
-                        }
-                        @if (assignForm.controls.propertyId.value && vacantUnits().length === 0) {
-                          <option value="" disabled>No vacant units</option>
-                        }
-                      </select>
-                    </label>
-
-                    <div class="assign-row">
-                      <label class="assign-field">
-                        <span>Monthly rent</span>
-                        <input type="number" formControlName="monthlyRent" min="0" />
-                      </label>
-                      <label class="assign-field">
-                        <span>Due day</span>
-                        <input type="number" formControlName="dueDay" min="1" max="28" />
-                      </label>
+                        Create new
+                      </button>
                     </div>
 
-                    <label class="assign-field">
-                      <span>Move-in date</span>
-                      <input type="date" formControlName="moveInDate" />
-                    </label>
+                    @if (assignMode() === 'existing') {
+                      <label class="assign-field">
+                        <span>Tenant you already added</span>
+                        <select
+                          [value]="selectedExistingTenantId()"
+                          (change)="onExistingTenantChange($any($event.target).value)"
+                        >
+                          <option value="">Select a tenant</option>
+                          @for (option of unlinkedTenants(); track option.id) {
+                            <option [value]="option.id">
+                              {{ option.name }} — {{ option.unitName }}, {{ option.propertyName }}
+                            </option>
+                          }
+                        </select>
+                      </label>
 
-                    <button
-                      type="submit"
-                      class="assign-submit"
-                      [disabled]="assignForm.invalid || assigning()"
-                    >
-                      {{ assigning() ? 'Assigning…' : 'Assign to unit' }}
-                    </button>
+                      @if (suggestedTenantId() && selectedExistingTenantId() === suggestedTenantId()) {
+                        <p class="assign-hint">Suggested match by email or phone — confirm it's the same person.</p>
+                      } @else {
+                        <p class="assign-hint">
+                          Links this account to a tenant you already created (keeps their unit, rent, and history).
+                        </p>
+                      }
+
+                      <button
+                        type="submit"
+                        class="assign-submit"
+                        [disabled]="!selectedExistingTenantId() || assigning()"
+                      >
+                        {{ assigning() ? 'Linking…' : 'Link to tenant' }}
+                      </button>
+                    } @else {
+                      <label class="assign-field">
+                        <span>Property</span>
+                        <select
+                          formControlName="propertyId"
+                          (change)="onAssignPropertyChange(assignForm.controls.propertyId.value)"
+                        >
+                          <option value="">Select property</option>
+                          @if (properties$ | async; as properties) {
+                            @for (property of properties; track property.id) {
+                              <option [value]="property.id">{{ property.name }}</option>
+                            }
+                          }
+                        </select>
+                      </label>
+
+                      <label class="assign-field">
+                        <span>Unit</span>
+                        <select
+                          formControlName="unitId"
+                          (change)="onAssignUnitSelected(assignForm.controls.unitId.value)"
+                        >
+                          <option value="">Select vacant unit</option>
+                          @for (unit of vacantUnits(); track unit.id) {
+                            <option [value]="unit.id">{{ unit.name }}</option>
+                          }
+                          @if (assignForm.controls.propertyId.value && vacantUnits().length === 0) {
+                            <option value="" disabled>No vacant units</option>
+                          }
+                        </select>
+                      </label>
+
+                      <div class="assign-row">
+                        <label class="assign-field">
+                          <span>Monthly rent</span>
+                          <input type="number" formControlName="monthlyRent" min="0" />
+                        </label>
+                        <label class="assign-field">
+                          <span>Due day</span>
+                          <input type="number" formControlName="dueDay" min="1" max="28" />
+                        </label>
+                      </div>
+
+                      <label class="assign-field">
+                        <span>Move-in date</span>
+                        <input type="date" formControlName="moveInDate" />
+                      </label>
+
+                      <button
+                        type="submit"
+                        class="assign-submit"
+                        [disabled]="assignForm.invalid || assigning()"
+                      >
+                        {{ assigning() ? 'Assigning…' : 'Assign to unit' }}
+                      </button>
+                    }
                   </form>
                 }
               </li>

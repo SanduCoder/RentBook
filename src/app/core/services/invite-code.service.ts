@@ -2,12 +2,9 @@ import { EnvironmentInjector, Injectable, inject, runInInjectionContext } from '
 import { AppCheck } from '@angular/fire/app-check';
 import {
   Firestore,
-  Timestamp,
-  collection,
   deleteDoc,
   doc,
   getDoc,
-  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -21,16 +18,12 @@ import {
 } from '../models/invite-code.model';
 import { ensureAppCheckReady } from '../utils/app-check.utils';
 import { toDate } from '../utils/firestore.utils';
-import { TenantService } from './tenant.service';
-import { UnitService } from './unit.service';
 
 @Injectable({ providedIn: 'root' })
 export class InviteCodeService {
   private firestore = inject(Firestore);
   private appCheck = inject(AppCheck, { optional: true });
   private injector = inject(EnvironmentInjector);
-  private tenantService = inject(TenantService);
-  private unitService = inject(UnitService);
 
   lookup(code: string): Observable<InviteCode | undefined> {
     return from(this.getByCode(code));
@@ -100,12 +93,11 @@ export class InviteCodeService {
     return this.replacePropertyCode(ownerId, ownerName, propertyId, propertyName, existingCode);
   }
 
-  async redeem(
-    code: string,
-    userId: string,
-    profile: { name: string; phone: string; email: string },
-    unitId?: string
-  ): Promise<RedeemInviteResult> {
+  /**
+   * Connect a tenant account to its landlord using any invite code (owner or property).
+   * The owner assigns the actual unit afterwards — tenants never self-select a unit.
+   */
+  async redeem(code: string, userId: string): Promise<RedeemInviteResult> {
     await ensureAppCheckReady(this.appCheck ?? null);
     const invite = await this.getByCode(code);
     if (!invite) {
@@ -119,110 +111,23 @@ export class InviteCodeService {
       throw new Error('Your account is already linked to a tenancy.');
     }
 
-    if (invite.type === 'owner') {
-      if (userData?.['linkedOwnerId']) {
-        throw new Error(
-          'You are already connected to your landlord. Ask them for a property code to pick your unit.'
-        );
-      }
-
-      await this.run((fs) =>
-        updateDoc(doc(fs, 'users', userId), {
-          linkedOwnerId: invite.ownerId,
-          role: 'tenant',
-        })
-      );
-      return {
-        type: 'owner',
-        ownerId: invite.ownerId,
-        pendingAssignment: true,
-      };
-    }
-
-    if (!invite.propertyId) {
-      throw new Error('This property invite code is not configured correctly.');
-    }
-
     const linkedOwnerId = userData?.['linkedOwnerId'] as string | undefined;
     if (linkedOwnerId && linkedOwnerId !== invite.ownerId) {
-      throw new Error('This property belongs to a different landlord than your account is linked to.');
+      throw new Error('Your account is already connected to a different landlord.');
     }
 
-    if (!unitId) {
-      throw new Error('Please select a unit to join.');
-    }
-
-    const unitSnap = await this.run((fs) => getDoc(doc(fs, 'units', unitId)));
-    if (!unitSnap.exists()) {
-      throw new Error('Selected unit was not found.');
-    }
-
-    const unit = unitSnap.data();
-    if (unit['propertyId'] !== invite.propertyId) {
-      throw new Error('Selected unit does not belong to this property.');
-    }
-    if (unit['status'] !== 'vacant') {
-      throw new Error('Selected unit is no longer available.');
-    }
-
-    const tenantRecordId = await this.run((fs) =>
-      runTransaction(fs, async (transaction) => {
-        const userRef = doc(fs, 'users', userId);
-        const unitRef = doc(fs, 'units', unitId);
-        const tenantRef = doc(collection(fs, 'tenants'));
-
-        const userSnap = await transaction.get(userRef);
-        const unitSnap = await transaction.get(unitRef);
-        if (!unitSnap.exists()) {
-          throw new Error('Selected unit was not found.');
-        }
-
-        const unitData = unitSnap.data();
-        if (unitData['propertyId'] !== invite.propertyId) {
-          throw new Error('Selected unit does not belong to this property.');
-        }
-        if (unitData['status'] !== 'vacant') {
-          throw new Error('Selected unit is no longer available.');
-        }
-
-        const existingUser = userSnap.exists() ? userSnap.data() : undefined;
-        const linkUpdate: Record<string, unknown> = {
-          linkedPropertyId: invite.propertyId,
-          role: 'tenant',
-        };
-        if (!existingUser?.['linkedOwnerId']) {
-          linkUpdate['linkedOwnerId'] = invite.ownerId;
-        }
-
-        transaction.set(tenantRef, {
-          name: profile.name,
-          phone: profile.phone,
-          email: profile.email,
-          moveInDate: Timestamp.fromDate(new Date()),
-          monthlyRent: unitData['monthlyRent'] ?? 0,
-          dueDay: 1,
-          unitId,
-          propertyId: invite.propertyId,
-          userId,
-          active: true,
-          createdAt: serverTimestamp(),
-        });
-        transaction.update(unitRef, { status: 'occupied' });
-        transaction.update(userRef, {
-          ...linkUpdate,
-          tenantRecordId: tenantRef.id,
-        });
-
-        return tenantRef.id;
+    await this.run((fs) =>
+      updateDoc(doc(fs, 'users', userId), {
+        linkedOwnerId: invite.ownerId,
+        role: 'tenant',
       })
     );
 
     return {
-      type: 'property',
+      type: invite.type,
       ownerId: invite.ownerId,
       propertyId: invite.propertyId,
-      tenantRecordId,
-      pendingAssignment: false,
+      pendingAssignment: true,
     };
   }
 

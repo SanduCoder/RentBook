@@ -45,21 +45,35 @@
   </label>
 
   <div class="image-field">
-    <span class="field-label">Reference Photo <span class="optional">(optional)</span></span>
-    <span class="hint">Photo of the property condition — useful if a tenant causes damage</span>
+    <span class="field-label">Reference Photos <span class="optional">(optional)</span></span>
+    <span class="hint">Photos of the property condition — useful if a tenant causes damage. Add up to {{ maxImages }}.</span>
 
-    @if (hasImage()) {
-      <div class="image-preview">
-        <img [src]="imagePreview() || existingImageUrl()" alt="Property reference photo" />
-        <button type="button" class="btn-secondary btn-sm" (click)="clearImage()">Remove photo</button>
+    @if (existingImageUrls().length || newPreviews().length) {
+      <div class="image-grid">
+        @for (url of existingImageUrls(); track url; let i = $index) {
+          <div class="image-thumb">
+            <img [src]="url" alt="Property reference photo" />
+            <button type="button" class="thumb-remove" (click)="removeExistingImage(i)" aria-label="Remove photo">✕</button>
+          </div>
+        }
+        @for (preview of newPreviews(); track preview; let i = $index) {
+          <div class="image-thumb">
+            <img [src]="preview" alt="Property reference photo" />
+            <button type="button" class="thumb-remove" (click)="removeNewImage(i)" aria-label="Remove photo">✕</button>
+          </div>
+        }
       </div>
-    } @else {
+    }
+
+    @if (canAddMore()) {
       <label class="upload-box">
-        <input type="file" accept="image/*" capture="environment" (change)="onFileSelected($event)" />
+        <input type="file" accept="image/*" multiple (change)="onFilesSelected($event)" />
         <span class="upload-icon">📷</span>
-        <span class="upload-text">Tap to add a photo</span>
-        <span class="upload-sub">JPG or PNG, max 5 MB</span>
+        <span class="upload-text">Tap to add photos</span>
+        <span class="upload-sub">JPG or PNG, max 5 MB each</span>
       </label>
+    } @else {
+      <span class="hint">Maximum of {{ maxImages }} photos reached.</span>
     }
   </div>
 

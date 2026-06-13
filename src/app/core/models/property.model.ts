@@ -19,6 +19,7 @@ export interface Property {
   currency: string;
   totalUnits: number;
   imageUrl?: string;
+  imageUrls?: string[];
   inviteCode?: string;
   createdAt: Date;
 }

@@ -154,8 +154,8 @@ const HELP_TOPICS: HelpTopic[] = [
     summary: 'For new tenants joining a landlord.',
     steps: [
       'Register with the invite code from your landlord, or enter it after signing up via More → join prompts.',
-      'Enter the property code, then pick your vacant unit to finish setup.',
-      'Once linked, you can report payments and maintenance from the app.',
+      'Enter the code to connect to your landlord. They assign your unit — you do not pick it yourself.',
+      'Once your landlord assigns your unit, you can report payments and maintenance from the app.',
     ],
     tenantOnly: true,
   },

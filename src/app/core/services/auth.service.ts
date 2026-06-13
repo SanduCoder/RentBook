@@ -4,6 +4,7 @@ import {
   Auth,
   User,
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -113,30 +114,44 @@ export class AuthService {
   ): Promise<void> {
     await ensureAppCheckReady(this.appCheck ?? null);
 
-    const credential = await createUserWithEmailAndPassword(this.auth, email, password);
-    await updateFirebaseProfile(credential.user, { displayName: name });
-    await sendEmailVerification(credential.user);
+    let credential;
+    try {
+      credential = await createUserWithEmailAndPassword(this.auth, email, password);
+    } catch (err) {
+      throw this.enrichRegisterError(err);
+    }
 
-    const countryCode = resolveCountryCode(_options?.countryCode);
+    try {
+      await updateFirebaseProfile(credential.user, { displayName: name });
+      await sendEmailVerification(credential.user);
 
-    const appUser: Omit<AppUser, 'id'> = {
-      name,
-      phone,
-      email,
-      role,
-      countryCode,
-      createdAt: new Date(),
-    };
+      const countryCode = resolveCountryCode(_options?.countryCode);
 
-    await setDoc(doc(this.firestore, 'users', credential.user.uid), {
-      ...appUser,
-      createdAt: serverTimestamp(),
-    });
+      const appUser: Omit<AppUser, 'id'> = {
+        name,
+        phone,
+        email,
+        role,
+        countryCode,
+        createdAt: new Date(),
+      };
 
-    const uid = credential.user.uid;
+      await setDoc(doc(this.firestore, 'users', credential.user.uid), {
+        ...appUser,
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      // Roll back the half-created auth account so the email can be reused.
+      await deleteUser(credential.user).catch(() => undefined);
+      throw this.enrichRegisterError(err);
+    }
 
     if (canManageTenants(role)) {
-      await this.inviteCodeService.ensureOwnerCode(uid, name);
+      try {
+        await this.inviteCodeService.ensureOwnerCode(credential.user.uid, name);
+      } catch {
+        // Non-fatal: the owner invite code is generated lazily later if this fails.
+      }
     }
 
     await signOut(this.auth);
@@ -145,13 +160,8 @@ export class AuthService {
     this.emailVerified.set(false);
   }
 
-  async linkWithInviteCode(
-    userId: string,
-    profile: { name: string; phone: string; email: string },
-    inviteCode: string,
-    unitId?: string
-  ) {
-    const result = await this.inviteCodeService.redeem(inviteCode, userId, profile, unitId);
+  async linkWithInviteCode(userId: string, inviteCode: string) {
+    const result = await this.inviteCodeService.redeem(inviteCode, userId);
     await this.loadUserProfile(userId);
     return result;
   }
@@ -323,6 +333,32 @@ export class AuthService {
           reject(err);
         });
     });
+  }
+
+  private enrichRegisterError(err: unknown): Error {
+    const code = (err as { code?: string })?.code;
+
+    if (code === 'auth/email-already-in-use') {
+      return new Error('That email is already registered. Try signing in instead.');
+    }
+
+    if (code === 'auth/network-request-failed' || code === 'unavailable' || this.looksBlocked(err)) {
+      return new Error(
+        'Could not reach the server. A browser ad blocker or privacy extension is likely blocking Firestore — disable it for this site (or try a different browser / a private window with extensions off) and try again.'
+      );
+    }
+
+    if (code === 'permission-denied') {
+      return new Error('Account creation was blocked by security rules. Make sure the latest rules are deployed, then try again.');
+    }
+
+    return err instanceof Error ? err : new Error('Could not create account. Please try again.');
+  }
+
+  /** Detect ad blocker / privacy-extension network blocks (ERR_BLOCKED_BY_CLIENT). */
+  private looksBlocked(err: unknown): boolean {
+    const message = (err as { message?: string })?.message ?? '';
+    return /blocked_by_client|err_blocked|network|failed to fetch/i.test(message);
   }
 
   private enrichAuthError(err: unknown): Error {

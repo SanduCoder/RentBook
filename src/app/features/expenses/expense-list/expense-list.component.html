@@ -115,6 +115,53 @@
                     </div>
                   </div>
                 </div>
+
+                @if (expense.sharedLabel) {
+                  <div class="share-footer">
+                    <span class="share-info">
+                      Shared with <strong>{{ expense.sharedLabel }}</strong>
+                      @if (expense.shareAmount) {
+                        · {{ expense.shareAmount | currencyFormat: data.currency }} each
+                      }
+                    </span>
+                    @if (expense.settlementStatus) {
+                      <div class="settle-actions">
+                        @if (expense.settlementStatus === 'paid') {
+                          <span class="settle-chip paid">Paid</span>
+                          <button type="button" class="settle-link" (click)="markUnpaid(expense.id)">Mark unpaid</button>
+                        } @else if (expense.settlementStatus === 'pending_confirmation') {
+                          <span class="settle-chip pending">Tenant marked paid</span>
+                          <button type="button" class="settle-btn" (click)="confirmPaid(expense.id)">Confirm paid</button>
+                        } @else {
+                          <span class="settle-chip unpaid">Unpaid</span>
+                          <button type="button" class="settle-btn ghost" (click)="confirmPaid(expense.id)">Mark paid</button>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  @if (expense.splitShares; as shares) {
+                    <ul class="split-list">
+                      @for (share of shares; track share.tenantId) {
+                        <li class="split-row">
+                          <span class="split-name">{{ share.name }}</span>
+                          <div class="settle-actions">
+                            @if (share.status === 'paid') {
+                              <span class="settle-chip paid">Paid</span>
+                              <button type="button" class="settle-link" (click)="setShare(expense.id, share.tenantId, 'unpaid')">Reopen</button>
+                            } @else if (share.status === 'pending_confirmation') {
+                              <span class="settle-chip pending">Marked paid</span>
+                              <button type="button" class="settle-btn" (click)="setShare(expense.id, share.tenantId, 'paid')">Confirm</button>
+                            } @else {
+                              <span class="settle-chip unpaid">Unpaid</span>
+                              <button type="button" class="settle-btn ghost" (click)="setShare(expense.id, share.tenantId, 'paid')">Mark paid</button>
+                            }
+                          </div>
+                        </li>
+                      }
+                    </ul>
+                  }
+                }
               </article>
             </li>
           }

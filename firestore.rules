@@ -138,10 +138,9 @@ service cloud.firestore {
         resource.data.ownerId == request.auth.uid
       );
       allow create: if canAccess() &&
-        hasAppCheck() &&
         request.resource.data.ownerId == request.auth.uid &&
         request.resource.data.active == true;
-      allow delete: if canAccess() && hasAppCheck() && resource.data.ownerId == request.auth.uid;
+      allow delete: if canAccess() && resource.data.ownerId == request.auth.uid;
     }
 
     match /users/{userId} {
@@ -151,7 +150,6 @@ service cloud.firestore {
         canAccess() && resource.data.linkedOwnerId == request.auth.uid
       );
       allow create: if isSignedIn() &&
-        hasAppCheck() &&
         request.auth.uid == userId &&
         request.resource.data.keys().hasOnly(['name', 'phone', 'email', 'role', 'createdAt', 'countryCode']) &&
         isValidRole(request.resource.data.role) &&
@@ -198,7 +196,8 @@ service cloud.firestore {
     match /units/{unitId} {
       allow read: if canAccess() && (
         isPropertyOwner(resource.data.propertyId) ||
-        resource.data.status == 'vacant'
+        resource.data.status == 'vacant' ||
+        (isAssignedTenant() && userDoc().linkedPropertyId == resource.data.propertyId)
       );
       allow create: if canAccess() && isPropertyOwner(request.resource.data.propertyId);
       allow update: if canAccess() && (
@@ -260,9 +259,42 @@ service cloud.firestore {
     }
 
     match /expenses/{expenseId} {
-      allow read: if canAccess() && isPropertyOwner(resource.data.propertyId);
+      allow read: if canAccess() && (
+        isPropertyOwner(resource.data.propertyId) ||
+        (
+          isAssignedTenant() &&
+          userDoc().linkedPropertyId == resource.data.propertyId &&
+          resource.data.visibleToTenants == true &&
+          (
+            resource.data.sharedWithTenantId == 'all' ||
+            resource.data.sharedWithTenantId == userDoc().tenantRecordId
+          )
+        )
+      );
       allow create: if canAccess() && isPropertyOwner(request.resource.data.propertyId);
-      allow update, delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
+      allow update: if canAccess() && (
+        isPropertyOwner(resource.data.propertyId) ||
+        (
+          isAssignedTenant() &&
+          userDoc().linkedPropertyId == resource.data.propertyId &&
+          resource.data.sharedWithTenantId == userDoc().tenantRecordId &&
+          resource.data.visibleToTenants == true &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['settlementStatus']) &&
+          request.resource.data.settlementStatus in ['unpaid', 'pending_confirmation']
+        ) ||
+        (
+          isAssignedTenant() &&
+          userDoc().linkedPropertyId == resource.data.propertyId &&
+          resource.data.sharedWithTenantId == 'all' &&
+          resource.data.visibleToTenants == true &&
+          (userDoc().tenantRecordId in resource.data.splitTenantIds) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tenantSettlements']) &&
+          request.resource.data.tenantSettlements.diff(resource.data.tenantSettlements)
+            .affectedKeys().hasOnly([userDoc().tenantRecordId]) &&
+          request.resource.data.tenantSettlements[userDoc().tenantRecordId] in ['unpaid', 'pending_confirmation']
+        )
+      );
+      allow delete: if canAccess() && isPropertyOwner(resource.data.propertyId);
     }
 
     match /maintenanceRequests/{requestId} {

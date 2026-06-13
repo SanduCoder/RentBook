@@ -55,10 +55,20 @@
             <span class="period-badge">This Month</span>
           </div>
 
-          @if (property.imageUrl) {
+          @if (property.imageUrls?.length || property.imageUrl) {
             <div class="reference-photo">
-              <img [src]="property.imageUrl" alt="Property condition reference" />
-              <p>Reference photo — property condition on record</p>
+              @if (property.imageUrls?.length) {
+                <div class="reference-photo-grid">
+                  @for (url of property.imageUrls; track url) {
+                    <img [src]="url" alt="Property condition reference" />
+                  }
+                </div>
+              } @else {
+                <img [src]="property.imageUrl" alt="Property condition reference" />
+              }
+              <p>
+                Reference photo{{ (property.imageUrls?.length ?? 0) > 1 ? 's' : '' }} — property condition on record
+              </p>
             </div>
           }
 
@@ -497,6 +507,54 @@
                         </svg>
                       </button>
                     </div>
+
+                    @if (expense.sharedLabel) {
+                      <div class="expense-settle">
+                        <span class="settle-shared">
+                          Shared with <strong>{{ expense.sharedLabel }}</strong>
+                          @if (expense.shareAmount) {
+                            · {{ expense.shareAmount | currencyFormat: property.currency }} each
+                          }
+                        </span>
+
+                        @if (expense.settlementStatus) {
+                          <div class="settle-actions">
+                            @if (expense.settlementStatus === 'paid') {
+                              <span class="settle-chip paid">Paid</span>
+                              <button type="button" class="settle-link" (click)="markExpenseUnpaid(expense.id)">Mark unpaid</button>
+                            } @else if (expense.settlementStatus === 'pending_confirmation') {
+                              <span class="settle-chip pending">Tenant marked paid</span>
+                              <button type="button" class="settle-btn" (click)="confirmExpensePaid(expense.id)">Confirm paid</button>
+                            } @else {
+                              <span class="settle-chip unpaid">Unpaid</span>
+                              <button type="button" class="settle-btn ghost" (click)="confirmExpensePaid(expense.id)">Mark paid</button>
+                            }
+                          </div>
+                        }
+
+                        @if (expense.splitShares; as shares) {
+                          <ul class="split-list">
+                            @for (share of shares; track share.tenantId) {
+                              <li class="split-row">
+                                <span class="split-name">{{ share.name }}</span>
+                                <div class="settle-actions">
+                                  @if (share.status === 'paid') {
+                                    <span class="settle-chip paid">Paid</span>
+                                    <button type="button" class="settle-link" (click)="setExpenseShare(expense.id, share.tenantId, 'unpaid')">Reopen</button>
+                                  } @else if (share.status === 'pending_confirmation') {
+                                    <span class="settle-chip pending">Marked paid</span>
+                                    <button type="button" class="settle-btn" (click)="setExpenseShare(expense.id, share.tenantId, 'paid')">Confirm</button>
+                                  } @else {
+                                    <span class="settle-chip unpaid">Unpaid</span>
+                                    <button type="button" class="settle-btn ghost" (click)="setExpenseShare(expense.id, share.tenantId, 'paid')">Mark paid</button>
+                                  }
+                                </div>
+                              </li>
+                            }
+                          </ul>
+                        }
+                      </div>
+                    }
                   </li>
                 }
               </ul>

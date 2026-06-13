@@ -26,6 +26,7 @@ export interface CreatePropertyDto {
   countryCode?: string;
   currency: string;
   imageUrl?: string;
+  imageUrls?: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -76,7 +77,7 @@ export class PropertyService {
   async update(id: string, data: Partial<CreatePropertyDto>, options?: { removeImage?: boolean }): Promise<void> {
     const payload = stripUndefined({
       ...data,
-      ...(options?.removeImage ? { imageUrl: deleteField() } : {}),
+      ...(options?.removeImage ? { imageUrl: deleteField(), imageUrls: deleteField() } : {}),
     });
     await updateDoc(doc(this.firestore, 'properties', id), payload);
   }

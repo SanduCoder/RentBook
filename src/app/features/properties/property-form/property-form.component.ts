@@ -6,7 +6,7 @@ import { DEFAULT_COUNTRY_CODE, CurrencyOption, getCountryProfile, resolveCountry
 import { navigateBack } from '../../../core/utils/navigate-back.util';
 import { AuthService } from '../../../core/services/auth.service';
 import { CountryProfileService } from '../../../core/services/country-profile.service';
-import { PropertyImageService } from '../../../core/services/property-image.service';
+import { MAX_PROPERTY_IMAGES, PropertyImageService } from '../../../core/services/property-image.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { InviteCodeService } from '../../../core/services/invite-code.service';
 import { PropertyType } from '../../../core/models/property.model';
@@ -36,10 +36,10 @@ export class PropertyFormComponent implements OnInit {
   currencies = signal<CurrencyOption[]>(getCountryProfile(DEFAULT_COUNTRY_CODE).currencies);
   countries = this.countryProfiles.countries;
 
-  selectedFile = signal<File | null>(null);
-  imagePreview = signal<string | null>(null);
-  existingImageUrl = signal<string | null>(null);
-  removeImage = signal(false);
+  existingImageUrls = signal<string[]>([]);
+  newFiles = signal<File[]>([]);
+  newPreviews = signal<string[]>([]);
+  readonly maxImages = MAX_PROPERTY_IMAGES;
 
   propertyTypes: { value: PropertyType; label: string }[] = [
     { value: 'compound', label: 'Compound' },
@@ -78,9 +78,12 @@ export class PropertyFormComponent implements OnInit {
           currency: property.currency,
         });
         this.applyCountryProfile(countryCode, false);
-        if (property.imageUrl) {
-          this.existingImageUrl.set(property.imageUrl);
-        }
+        const urls = property.imageUrls?.length
+          ? property.imageUrls
+          : property.imageUrl
+            ? [property.imageUrl]
+            : [];
+        this.existingImageUrls.set(urls);
       });
       return;
     }
@@ -90,34 +93,65 @@ export class PropertyFormComponent implements OnInit {
     this.applyCountryProfile(userCountry, false);
   }
 
-  onFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+  imageCount(): number {
+    return this.existingImageUrls().length + this.newFiles().length;
+  }
 
-    const error = this.propertyImageService.validateImage(file);
-    if (error) {
-      window.alert(error);
-      input.value = '';
+  canAddMore(): boolean {
+    return this.imageCount() < this.maxImages;
+  }
+
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (!files.length) return;
+
+    let remaining = this.maxImages - this.imageCount();
+    if (remaining <= 0) {
+      window.alert(`You can add up to ${this.maxImages} photos.`);
       return;
     }
 
-    this.selectedFile.set(file);
-    this.removeImage.set(false);
-    this.imagePreview.set(URL.createObjectURL(file));
-  }
-
-  clearImage(): void {
-    this.selectedFile.set(null);
-    this.imagePreview.set(null);
-    if (this.existingImageUrl()) {
-      this.removeImage.set(true);
-      this.existingImageUrl.set(null);
+    const accepted: File[] = [];
+    let skippedForLimit = false;
+    for (const file of files) {
+      if (remaining <= 0) {
+        skippedForLimit = true;
+        break;
+      }
+      const error = this.propertyImageService.validateImage(file);
+      if (error) {
+        window.alert(error);
+        continue;
+      }
+      accepted.push(file);
+      remaining--;
     }
+
+    if (skippedForLimit) {
+      window.alert(`You can add up to ${this.maxImages} photos. Some were not added.`);
+    }
+    if (!accepted.length) return;
+
+    this.newFiles.update((current) => [...current, ...accepted]);
+    this.newPreviews.update((current) => [
+      ...current,
+      ...accepted.map((file) => URL.createObjectURL(file)),
+    ]);
   }
 
-  hasImage(): boolean {
-    return !!(this.imagePreview() || this.existingImageUrl());
+  removeExistingImage(index: number): void {
+    this.existingImageUrls.update((urls) => urls.filter((_, i) => i !== index));
+  }
+
+  removeNewImage(index: number): void {
+    const preview = this.newPreviews()[index];
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+    this.newFiles.update((files) => files.filter((_, i) => i !== index));
+    this.newPreviews.update((previews) => previews.filter((_, i) => i !== index));
   }
 
   cancel(event?: Event): void {
@@ -137,25 +171,29 @@ export class PropertyFormComponent implements OnInit {
     this.loading.set(true);
     try {
       const data = this.form.getRawValue();
-      const file = this.selectedFile();
+      const newFiles = this.newFiles();
 
       if (this.isEdit && this.propertyId) {
-        let imageUrl: string | undefined;
-        if (file) {
-          imageUrl = await this.propertyImageService.upload(user.id, this.propertyId, file);
-        }
+        const uploaded = newFiles.length
+          ? await this.propertyImageService.uploadMany(user.id, this.propertyId, newFiles)
+          : [];
+        const finalUrls = [...this.existingImageUrls(), ...uploaded];
 
-        await this.propertyService.update(
-          this.propertyId,
-          imageUrl ? { ...data, imageUrl } : data,
-          { removeImage: this.removeImage() && !file }
-        );
+        if (finalUrls.length) {
+          await this.propertyService.update(this.propertyId, {
+            ...data,
+            imageUrl: finalUrls[0],
+            imageUrls: finalUrls,
+          });
+        } else {
+          await this.propertyService.update(this.propertyId, data, { removeImage: true });
+        }
         this.router.navigate(['/properties', this.propertyId]);
       } else {
         const id = await this.propertyService.create(user.id, data);
-        if (file) {
-          const imageUrl = await this.propertyImageService.upload(user.id, id, file);
-          await this.propertyService.update(id, { imageUrl });
+        if (newFiles.length) {
+          const finalUrls = await this.propertyImageService.uploadMany(user.id, id, newFiles);
+          await this.propertyService.update(id, { imageUrl: finalUrls[0], imageUrls: finalUrls });
         }
         await this.inviteCodeService.ensurePropertyCode(user.id, user.name, id, data.name);
         this.router.navigate(['/properties', id]);

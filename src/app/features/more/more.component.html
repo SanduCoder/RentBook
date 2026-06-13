@@ -44,9 +44,8 @@
     </section>
   } @else if (user()?.role === 'tenant' && user()?.linkedOwnerId && !user()?.tenantRecordId) {
     <section class="invite-section tenant-join">
-      <h2>Finish linking your property</h2>
-      <p>You're connected to your landlord. Enter their property code and pick your unit to complete setup.</p>
-      <a routerLink="/join" class="join-link">Enter property code</a>
+      <h2>Connected to your landlord</h2>
+      <p>You're connected to your landlord. They'll assign your unit soon — no action needed on your side.</p>
     </section>
   } @else if (user()?.role === 'tenant' && !user()?.linkedOwnerId && !user()?.tenantRecordId) {
     <section class="invite-section tenant-join">

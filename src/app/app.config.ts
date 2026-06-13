@@ -17,7 +17,6 @@ import { getFirestore as getFirebaseFirestore, initializeFirestore } from 'fireb
 import { routes } from './app.routes';
 import { environment } from '../environments/environment';
 import { GlobalErrorHandler } from './core/services/error-notification.service';
-import { isIosStandalonePwa } from './core/utils/platform.utils';
 import { preloadRecaptcha } from './core/utils/pwa-bootstrap.utils';
 
 function createAuth() {
@@ -80,7 +79,7 @@ export const appConfig: ApplicationConfig = {
     provideFirestore(() => createFirestore()),
     provideStorage(() => getStorage()),
     provideServiceWorker('ngsw-worker.js', {
-      enabled: !isDevMode() && !isIosStandalonePwa(),
+      enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
     }),
   ],

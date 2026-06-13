@@ -1,5 +1,6 @@
 import { AsyncPipe, DatePipe, NgStyle } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
@@ -40,6 +41,15 @@ interface TenantSection {
   key: TenantRentStatus;
   title: string;
   items: TenantListItem[];
+}
+
+interface UnlinkedTenantOption {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  unitName: string;
+  propertyName: string;
 }
 
 interface CollectionSummary {
@@ -83,6 +93,9 @@ export class TenantListComponent {
   assigningUserId = signal<string | null>(null);
   assignError = signal('');
   assigning = signal(false);
+  assignMode = signal<'new' | 'existing'>('new');
+  selectedExistingTenantId = signal('');
+  suggestedTenantId = signal('');
 
   private ownerId = this.auth.currentUser()?.id ?? '';
 
@@ -130,6 +143,40 @@ export class TenantListComponent {
       );
     })
   );
+
+  unlinkedTenants$ = this.ownerId
+    ? this.propertyService.getByOwner(this.ownerId).pipe(
+        switchMap((properties) => {
+          if (properties.length === 0) return of([] as UnlinkedTenantOption[]);
+
+          const propertyMap = new Map(properties.map((p) => [p.id, p]));
+          const propertyIds = properties.map((p) => p.id);
+
+          return combineLatest([
+            this.tenantService.getByOwnerProperties(propertyIds),
+            combineLatest(properties.map((p) => this.unitService.getByProperty(p.id))),
+          ]).pipe(
+            map(([tenants, unitGroups]) => {
+              const unitMap = new Map(unitGroups.flat().map((u) => [u.id, u]));
+              return tenants
+                .filter((tenant) => !tenant.userId && tenant.active !== false)
+                .map((tenant) => ({
+                  id: tenant.id,
+                  name: tenant.name,
+                  phone: tenant.phone,
+                  email: tenant.email ?? '',
+                  unitName: unitMap.get(tenant.unitId)?.name ?? 'Unit',
+                  propertyName: propertyMap.get(tenant.propertyId)?.name ?? 'Property',
+                }));
+            })
+          );
+        })
+      )
+    : of([] as UnlinkedTenantOption[]);
+
+  unlinkedTenants = toSignal(this.unlinkedTenants$, {
+    initialValue: [] as UnlinkedTenantOption[],
+  });
 
   assignForm = this.fb.nonNullable.group({
     propertyId: ['', Validators.required],
@@ -219,8 +266,9 @@ export class TenantListComponent {
     );
   }
 
-  startAssign(userId: string): void {
-    this.assigningUserId.set(this.assigningUserId() === userId ? null : userId);
+  startAssign(user: PendingTenantUser): void {
+    const willOpen = this.assigningUserId() !== user.id;
+    this.assigningUserId.set(willOpen ? user.id : null);
     this.assignError.set('');
     this.assignForm.reset({
       propertyId: '',
@@ -230,6 +278,41 @@ export class TenantListComponent {
       moveInDate: new Date().toISOString().split('T')[0],
     });
     this.vacantUnits.set([]);
+    this.assignMode.set('new');
+    this.selectedExistingTenantId.set('');
+    this.suggestedTenantId.set('');
+
+    if (willOpen) {
+      const match = this.suggestExistingTenant(user);
+      if (match) {
+        this.assignMode.set('existing');
+        this.selectedExistingTenantId.set(match.id);
+        this.suggestedTenantId.set(match.id);
+      }
+    }
+  }
+
+  setAssignMode(mode: 'new' | 'existing'): void {
+    this.assignMode.set(mode);
+    this.assignError.set('');
+  }
+
+  onExistingTenantChange(tenantId: string): void {
+    this.selectedExistingTenantId.set(tenantId);
+  }
+
+  private suggestExistingTenant(user: PendingTenantUser): UnlinkedTenantOption | undefined {
+    const email = user.email?.trim().toLowerCase();
+    const phone = this.digitsOnly(user.phone);
+    return this.unlinkedTenants().find(
+      (tenant) =>
+        (!!email && tenant.email.trim().toLowerCase() === email) ||
+        (!!phone && this.digitsOnly(tenant.phone) === phone)
+    );
+  }
+
+  private digitsOnly(value: string): string {
+    return (value ?? '').replace(/\D/g, '');
   }
 
   async onAssignPropertyChange(propertyId: string): Promise<void> {
@@ -251,7 +334,29 @@ export class TenantListComponent {
   }
 
   async submitAssign(user: PendingTenantUser): Promise<void> {
-    if (this.assignForm.invalid || !this.ownerId) return;
+    if (!this.ownerId) return;
+
+    if (this.assignMode() === 'existing') {
+      const tenantId = this.selectedExistingTenantId();
+      if (!tenantId) {
+        this.assignError.set('Choose a tenant to link.');
+        return;
+      }
+
+      this.assigning.set(true);
+      this.assignError.set('');
+      try {
+        await this.tenantService.linkExistingTenantToUser(this.ownerId, user.id, tenantId);
+        this.assigningUserId.set(null);
+      } catch (err) {
+        this.assignError.set(err instanceof Error ? err.message : 'Could not link tenant.');
+      } finally {
+        this.assigning.set(false);
+      }
+      return;
+    }
+
+    if (this.assignForm.invalid) return;
 
     this.assigning.set(true);
     this.assignError.set('');

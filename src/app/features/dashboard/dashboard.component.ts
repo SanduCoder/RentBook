@@ -2,12 +2,27 @@ import { AsyncPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { catchError, combineLatest, map, of, switchMap } from 'rxjs';
 import { Property } from '../../core/models/property.model';
+import { formatUnitLayout } from '../../core/models/unit.model';
 import { maintenanceCategoryIcon } from '../../core/models/maintenance.model';
+import { defaultCurrency } from '../../core/config/country-profiles.config';
+import {
+  Expense,
+  EXPENSE_CATEGORY_LABELS,
+  EXPENSE_SETTLEMENT_LABELS,
+  ExpenseSettlementStatus,
+  expenseShareAmount,
+  isSplitExpense,
+  isTenantAssignedExpense,
+  tenantShareStatus,
+} from '../../core/models/expense.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ErrorNotificationService } from '../../core/services/error-notification.service';
+import { ExpenseService } from '../../core/services/expense.service';
 import { PropertyService } from '../../core/services/property.service';
+import { TenantService } from '../../core/services/tenant.service';
+import { UnitService } from '../../core/services/unit.service';
 import { RentReminderService } from '../../core/services/rent-reminder.service';
 import { ActivityItem, DashboardService, DashboardStats } from '../../core/services/dashboard.service';
 import { CountryProfileService } from '../../core/services/country-profile.service';
@@ -28,6 +43,22 @@ interface QuickAction {
   tone: 'green' | 'orange' | 'purple' | 'blue';
 }
 
+interface TenantHome {
+  propertyName: string;
+  address: string;
+  unitName: string;
+  unitLayout: string;
+  monthlyRent: number;
+  currency: string;
+  dueDay: number;
+  moveInDate: Date;
+}
+
+interface SharedExpenses {
+  currency: string;
+  items: Expense[];
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -39,13 +70,75 @@ export class DashboardComponent {
   private auth = inject(AuthService);
   private dashboard = inject(DashboardService);
   private propertyService = inject(PropertyService);
+  private tenantService = inject(TenantService);
+  private unitService = inject(UnitService);
+  private expenseService = inject(ExpenseService);
   private rentReminders = inject(RentReminderService);
   private notifications = inject(ErrorNotificationService);
   private countryProfiles = inject(CountryProfileService);
 
+  expenseCategoryLabels = EXPENSE_CATEGORY_LABELS;
+  expenseSettlementLabels = EXPENSE_SETTLEMENT_LABELS;
   user = this.auth.currentUser;
   stats$ = this.dashboard.getStats();
   activity$ = this.dashboard.getRecentActivity();
+  tenantHome$ = toObservable(this.user).pipe(
+    switchMap((user) => {
+      if (!user || !isTenancyLinked(user) || !user.tenantRecordId) {
+        return of(null as TenantHome | null);
+      }
+
+      return this.tenantService.getById(user.tenantRecordId).pipe(
+        switchMap((tenant) => {
+          if (!tenant) return of(null as TenantHome | null);
+
+          return combineLatest([
+            this.propertyService.getById(tenant.propertyId).pipe(catchError(() => of(undefined))),
+            this.unitService.getById(tenant.unitId).pipe(catchError(() => of(undefined))),
+          ]).pipe(
+            map(
+              ([property, unit]) =>
+                ({
+                  propertyName: property?.name ?? 'Your property',
+                  address: property?.address ?? '',
+                  unitName: unit?.name ?? 'Your unit',
+                  unitLayout: unit ? formatUnitLayout(unit.rooms, unit.bathrooms) : '',
+                  monthlyRent: tenant.monthlyRent,
+                  currency: property?.currency ?? defaultCurrency(user.countryCode),
+                  dueDay: tenant.dueDay,
+                  moveInDate: tenant.moveInDate,
+                } satisfies TenantHome)
+            )
+          );
+        }),
+        catchError(() => of(null as TenantHome | null))
+      );
+    })
+  );
+  sharedExpenses$ = toObservable(this.user).pipe(
+    switchMap((user) => {
+      if (!user || !isTenancyLinked(user) || !user.linkedPropertyId || !user.tenantRecordId) {
+        return of(null as SharedExpenses | null);
+      }
+
+      const propertyId = user.linkedPropertyId;
+      return combineLatest([
+        this.expenseService
+          .getVisibleByProperty(propertyId, user.tenantRecordId)
+          .pipe(catchError(() => of([] as Expense[]))),
+        this.propertyService.getById(propertyId).pipe(catchError(() => of(undefined))),
+      ]).pipe(
+        map(
+          ([items, property]) =>
+            ({
+              currency: property?.currency ?? defaultCurrency(user.countryCode),
+              items: items.slice(0, 5),
+            } satisfies SharedExpenses)
+        ),
+        catchError(() => of(null as SharedExpenses | null))
+      );
+    })
+  );
   tenantReminders$ = toObservable(this.user).pipe(
     switchMap((user) => {
       if (!user || !isTenancyLinked(user)) {
@@ -91,19 +184,6 @@ export class DashboardComponent {
       if (!user) return of([] as QuickAction[]);
 
       if (!canManageTenants(user.role)) {
-        if (hasPendingTenancyLink(user)) {
-          return of([
-            {
-              id: 'complete-setup',
-              route: '/join',
-              title: 'Complete Setup',
-              subtitle: 'Enter your property code',
-              icon: 'properties' as Icon3dName,
-              tone: 'green' as const,
-            },
-            ...this.tenantQuickActions(user.countryCode),
-          ]);
-        }
         return of(this.tenantQuickActions(user.countryCode));
       }
 
@@ -221,6 +301,66 @@ export class DashboardComponent {
   }
 
   activityLink = dashboardActivityLink;
+
+  /** True when this shared expense is assigned to the current tenant specifically. */
+  isAssignedToMe(expense: Expense): boolean {
+    return (
+      isTenantAssignedExpense(expense) &&
+      expense.sharedWithTenantId === this.user()?.tenantRecordId
+    );
+  }
+
+  /** True when this is a split expense the current tenant is part of. */
+  isMySplit(expense: Expense): boolean {
+    const tenantId = this.user()?.tenantRecordId;
+    return !!tenantId && isSplitExpense(expense) && (expense.splitTenantIds?.includes(tenantId) ?? false);
+  }
+
+  /** The amount the current tenant owes for this expense (full or split share). */
+  myAmount(expense: Expense): number {
+    return this.isMySplit(expense) ? expenseShareAmount(expense) : expense.amount;
+  }
+
+  /** The current tenant's settlement status for this expense. */
+  myStatus(expense: Expense): ExpenseSettlementStatus {
+    const tenantId = this.user()?.tenantRecordId;
+    if (this.isMySplit(expense) && tenantId) {
+      return tenantShareStatus(expense, tenantId);
+    }
+    return expense.settlementStatus ?? 'unpaid';
+  }
+
+  /** Whether the current tenant has any payable share of this expense. */
+  isPayableByMe(expense: Expense): boolean {
+    return this.isAssignedToMe(expense) || this.isMySplit(expense);
+  }
+
+  async markExpensePaid(expense: Expense): Promise<void> {
+    const tenantId = this.user()?.tenantRecordId;
+    try {
+      if (this.isMySplit(expense) && tenantId) {
+        await this.expenseService.setShareStatus(expense.id, tenantId, 'pending_confirmation');
+      } else {
+        await this.expenseService.tenantMarkPaid(expense.id);
+      }
+      this.notifications.success('Marked as paid. Your landlord will confirm it.');
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not update this expense. Try again.');
+    }
+  }
+
+  async undoExpensePaid(expense: Expense): Promise<void> {
+    const tenantId = this.user()?.tenantRecordId;
+    try {
+      if (this.isMySplit(expense) && tenantId) {
+        await this.expenseService.setShareStatus(expense.id, tenantId, 'unpaid');
+      } else {
+        await this.expenseService.tenantUndoPaid(expense.id);
+      }
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not update this expense. Try again.');
+    }
+  }
 
   private buildManagerQuickActions(properties: Property[]): QuickAction[] {
     const invite = this.inviteQuickAction(properties);

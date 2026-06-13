@@ -48,8 +48,7 @@
 
     @if (pendingTenancyLink()) {
       <div class="pending-link-banner">
-        <p>You're connected to your landlord. Enter their <strong>property code</strong> to pick your unit and finish setup.</p>
-        <a routerLink="/join" class="btn-primary btn-sm">Complete setup</a>
+        <p>You're connected to your landlord. They'll assign your unit soon — no action needed on your side.</p>
       </div>
     }
 
@@ -241,9 +240,36 @@
       </div>
       } @else if (pendingTenancyLink()) {
         <h2 class="overview-title">Almost there</h2>
-        <p class="tenant-overview-hint">Your landlord has been notified. Ask them for the property code, then complete setup to link your unit.</p>
+        <p class="tenant-overview-hint">You're connected to your landlord. They'll assign your unit soon — nothing else for you to do right now.</p>
       } @else {
         <h2 class="overview-title">Your Home</h2>
+        @if (tenantHome$ | async; as home) {
+          <div class="tenant-home-card">
+            <div class="tenant-home-head">
+              <span class="tenant-home-unit">{{ home.unitName }}</span>
+              @if (home.unitLayout) {
+                <span class="tenant-home-layout">{{ home.unitLayout }}</span>
+              }
+            </div>
+            <p class="tenant-home-property">
+              {{ home.propertyName }}@if (home.address) { · {{ home.address }} }
+            </p>
+            <div class="tenant-home-meta">
+              <div class="tenant-home-meta-item">
+                <span class="meta-label">Monthly rent</span>
+                <span class="meta-value">{{ home.monthlyRent | currencyFormat: home.currency }}</span>
+              </div>
+              <div class="tenant-home-meta-item">
+                <span class="meta-label">Rent due</span>
+                <span class="meta-value">Day {{ home.dueDay }} monthly</span>
+              </div>
+              <div class="tenant-home-meta-item">
+                <span class="meta-label">Move-in</span>
+                <span class="meta-value">{{ home.moveInDate | date: 'mediumDate' }}</span>
+              </div>
+            </div>
+          </div>
+        }
         @if (stats.pendingPaymentReports > 0) {
           <p class="tenant-overview-hint">
             {{ stats.pendingPaymentReports }} payment(s) waiting for landlord verification.
@@ -271,6 +297,55 @@
         }
       </div>
     </div>
+  }
+
+  @if (!canManage()) {
+    @if (sharedExpenses$ | async; as shared) {
+      @if (shared.items.length > 0) {
+        <section class="shared-expenses-section">
+          <div class="section-header">
+            <h2>Shared building costs</h2>
+          </div>
+          <p class="shared-expenses-hint">Costs your landlord is sharing for this property.</p>
+          <ul class="shared-expense-list">
+            @for (expense of shared.items; track expense.id) {
+              <li class="shared-expense-item">
+                <div class="shared-expense-main">
+                  <span class="shared-expense-category">{{ expenseCategoryLabels[expense.category] }}</span>
+                  @if (expense.description) {
+                    <span class="shared-expense-desc">{{ expense.description }}</span>
+                  }
+                  @if (isMySplit(expense)) {
+                    <span class="shared-expense-desc">
+                      Your share of {{ expense.amount | currencyFormat: shared.currency }}
+                      (split {{ expense.splitTenantIds?.length }} ways)
+                    </span>
+                  }
+                  @if (isPayableByMe(expense)) {
+                    @if (myStatus(expense) === 'paid') {
+                      <span class="settle-chip paid">Paid</span>
+                    } @else if (myStatus(expense) === 'pending_confirmation') {
+                      <span class="settle-row">
+                        <span class="settle-chip pending">Awaiting confirmation</span>
+                        <button type="button" class="settle-link" (click)="undoExpensePaid(expense)">Undo</button>
+                      </span>
+                    } @else {
+                      <button type="button" class="settle-btn" (click)="markExpensePaid(expense)">
+                        Mark as paid
+                      </button>
+                    }
+                  }
+                </div>
+                <div class="shared-expense-side">
+                  <span class="shared-expense-amount">{{ myAmount(expense) | currencyFormat: shared.currency }}</span>
+                  <span class="shared-expense-date">{{ expense.date | date: 'mediumDate' }}</span>
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
   }
 
   <section class="activity-section">

@@ -1,20 +1,17 @@
-import { AsyncPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { map, of } from 'rxjs';
 import { InviteCode } from '../../../core/models/invite-code.model';
 import { formatInviteCodeInput, normalizeInviteCode } from '../../../core/models/invite-code.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { InviteCodeService } from '../../../core/services/invite-code.service';
-import { UnitService } from '../../../core/services/unit.service';
 import { hasPendingTenancyLink, isTenancyLinked } from '../../../core/utils/role.utils';
 import { RecaptchaNoticeComponent } from '../../../shared/components/recaptcha-notice/recaptcha-notice.component';
 
 @Component({
   selector: 'app-join',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, AsyncPipe, RecaptchaNoticeComponent],
+  imports: [ReactiveFormsModule, RouterLink, RecaptchaNoticeComponent],
   templateUrl: './join.component.html',
   styleUrl: './join.component.scss',
 })
@@ -24,7 +21,6 @@ export class JoinComponent implements OnInit {
   private router = inject(Router);
   private auth = inject(AuthService);
   private inviteCodeService = inject(InviteCodeService);
-  private unitService = inject(UnitService);
 
   loading = signal(false);
   error = signal('');
@@ -38,10 +34,7 @@ export class JoinComponent implements OnInit {
 
   form = this.fb.nonNullable.group({
     code: ['', Validators.required],
-    unitId: [''],
   });
-
-  vacantUnits$ = of([] as { id: string; name: string; monthlyRent: number }[]);
 
   ngOnInit(): void {
     const code = this.route.snapshot.queryParamMap.get('code');
@@ -62,7 +55,6 @@ export class JoinComponent implements OnInit {
     const code = normalizeInviteCode(this.form.controls.code.value);
     if (code.length < 7) {
       this.invite.set(undefined);
-      this.vacantUnits$ = of([]);
       return;
     }
 
@@ -72,22 +64,6 @@ export class JoinComponent implements OnInit {
     try {
       const invite = await this.inviteCodeService.getByCode(code);
       this.invite.set(invite);
-
-      if (invite?.type === 'owner' && hasPendingTenancyLink(this.user())) {
-        this.error.set('You are already connected to your landlord. Ask them for a property code instead.');
-      } else if (invite?.type === 'property' && invite.propertyId) {
-        this.form.controls.unitId.setValidators([Validators.required]);
-        this.vacantUnits$ = this.unitService.getVacantByProperty(invite.propertyId).pipe(
-          map((units) =>
-            units.map((unit) => ({ id: unit.id, name: unit.name, monthlyRent: unit.monthlyRent }))
-          )
-        );
-      } else {
-        this.form.controls.unitId.clearValidators();
-        this.form.controls.unitId.setValue('');
-        this.vacantUnits$ = of([]);
-      }
-      this.form.controls.unitId.updateValueAndValidity();
     } catch {
       this.invite.set(undefined);
       this.error.set('Could not validate invite code.');
@@ -110,30 +86,17 @@ export class JoinComponent implements OnInit {
       return;
     }
 
-    const invite = this.invite();
-    if (hasPendingTenancyLink(user) && invite?.type === 'owner') {
-      this.error.set('You are already connected to your landlord. Enter their property code to pick your unit.');
-      return;
-    }
-
     this.loading.set(true);
     this.error.set('');
     this.success.set('');
 
     try {
-      const { code, unitId } = this.form.getRawValue();
-      const result = await this.auth.linkWithInviteCode(
-        user.id,
-        { name: user.name, phone: user.phone, email: user.email },
-        code,
-        unitId || undefined
-      );
+      const { code } = this.form.getRawValue();
+      await this.auth.linkWithInviteCode(user.id, code);
 
-      if (result.pendingAssignment) {
-        this.success.set(`You're connected to ${this.invite()?.ownerName}. Your landlord will assign your unit soon.`);
-      } else {
-        this.success.set(`Welcome! You're now linked to ${this.invite()?.propertyName ?? 'your property'}.`);
-      }
+      this.success.set(
+        `You're connected to ${this.invite()?.ownerName}. Your landlord will assign your unit soon.`
+      );
 
       window.setTimeout(() => this.router.navigate(['/dashboard']), 1500);
     } catch (err) {

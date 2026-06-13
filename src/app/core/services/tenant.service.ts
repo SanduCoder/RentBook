@@ -175,6 +175,54 @@ export class TenantService {
     return tenantRecordId;
   }
 
+  /** Attach a newly-registered tenant account to a tenant record the owner created earlier. */
+  async linkExistingTenantToUser(
+    ownerId: string,
+    userId: string,
+    tenantId: string
+  ): Promise<void> {
+    const userSnap = await getDoc(doc(this.firestore, 'users', userId));
+    if (!userSnap.exists()) {
+      throw new Error('User not found.');
+    }
+
+    const user = userSnap.data();
+    if (user['linkedOwnerId'] !== ownerId) {
+      throw new Error('This user is not connected to your account.');
+    }
+    if (user['tenantRecordId']) {
+      throw new Error('This user is already linked to a tenant record.');
+    }
+
+    const tenantSnap = await getDoc(doc(this.firestore, 'tenants', tenantId));
+    if (!tenantSnap.exists()) {
+      throw new Error('Tenant record not found.');
+    }
+
+    const tenant = tenantSnap.data();
+    if (tenant['userId']) {
+      throw new Error('This tenant record already has an account linked.');
+    }
+
+    const propertySnap = await getDoc(doc(this.firestore, 'properties', tenant['propertyId']));
+    if (!propertySnap.exists() || propertySnap.data()['ownerId'] !== ownerId) {
+      throw new Error('This tenant does not belong to your properties.');
+    }
+
+    await updateDoc(
+      doc(this.firestore, 'tenants', tenantId),
+      stripUndefined({
+        userId,
+        email: tenant['email'] || user['email'] || undefined,
+      })
+    );
+
+    await updateDoc(doc(this.firestore, 'users', userId), {
+      linkedPropertyId: tenant['propertyId'],
+      tenantRecordId: tenantId,
+    });
+  }
+
   private mapTenants(q: ReturnType<typeof query>): Observable<Tenant[]> {
     return observeCollection<Tenant>(this.injector, q).pipe(
       map((items) =>

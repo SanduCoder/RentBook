@@ -111,8 +111,10 @@ export class RegisterComponent implements OnInit {
       }
 
       this.router.navigate(['/login'], { queryParams });
-    } catch {
-      this.error.set('Could not create account. Email may already be in use.');
+    } catch (err) {
+      this.error.set(
+        err instanceof Error ? err.message : 'Could not create account. Please try again.'
+      );
     } finally {
       this.loading.set(false);
     }

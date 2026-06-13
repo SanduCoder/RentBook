@@ -35,9 +35,55 @@
     <input type="date" formControlName="date" />
   </label>
 
+  <label class="switch-row">
+    <span class="switch-text">
+      <span class="switch-title">Share with tenants</span>
+      <span class="switch-hint">Let tenants of this property see this cost.</span>
+    </span>
+    <input type="checkbox" formControlName="visibleToTenants" class="switch-input" />
+  </label>
+
+  @if (form.controls.visibleToTenants.value) {
+    <label>
+      Share with
+      <select formControlName="sharedWithTenantId">
+        <option value="all">All tenants of this property</option>
+        @if (propertyTenants$ | async; as tenants) {
+          @for (tenant of tenants; track tenant.id) {
+            @if (tenant.active !== false) {
+              <option [value]="tenant.id">{{ tenant.name }}</option>
+            }
+          }
+        }
+      </select>
+      @if (form.controls.sharedWithTenantId.value === 'all') {
+        @if (propertyTenants$ | async; as tenants) {
+          @let activeCount = countActive(tenants);
+          @if (activeCount > 0 && form.controls.amount.value > 0) {
+            <small class="field-note">
+              Split equally among {{ activeCount }} tenant{{ activeCount === 1 ? '' : 's' }} —
+              about {{ form.controls.amount.value / activeCount | number: '1.0-2' }} each.
+            </small>
+          } @else {
+            <small class="field-note">Each tenant pays an equal share of the total.</small>
+          }
+        }
+      } @else {
+        <small class="field-note">This tenant is responsible for the full amount.</small>
+      }
+    </label>
+  }
+
   <label>
-    Description
-    <textarea formControlName="description" rows="2" placeholder="What was this expense for?"></textarea>
+    {{ form.controls.visibleToTenants.value ? 'What is this for? (shown to tenants)' : 'Description' }}
+    <textarea
+      formControlName="description"
+      rows="2"
+      [placeholder]="form.controls.visibleToTenants.value ? 'e.g. Monthly water bill for the compound' : 'What was this expense for?'"
+    ></textarea>
+    @if (form.controls.visibleToTenants.value) {
+      <small class="field-note">Tenants will see the category, amount, date, and this note.</small>
+    }
   </label>
 
   <div class="form-actions">

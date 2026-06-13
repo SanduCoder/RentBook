@@ -8,6 +8,10 @@ import {
   EXPENSE_CATEGORY_LABELS,
   Expense,
   ExpenseCategory,
+  ExpenseSettlementStatus,
+  isTenantAssignedExpense,
+  SHARE_WITH_ALL_TENANTS,
+  tenantShareStatus,
 } from '../../../core/models/expense.model';
 import { Payment } from '../../../core/models/payment.model';
 import {
@@ -55,6 +59,19 @@ interface PropertyTenantItem {
   tenant: Tenant;
   unitName: string;
   rentStatus: TenantRentStatusInfo;
+}
+
+interface ExpenseShareItem {
+  tenantId: string;
+  name: string;
+  status: ExpenseSettlementStatus;
+}
+
+interface ExpenseItem extends Expense {
+  sharedLabel?: string;
+  settlementStatus?: ExpenseSettlementStatus;
+  splitShares?: ExpenseShareItem[];
+  shareAmount?: number;
 }
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 import { InviteCodeDisplayComponent } from '../../../shared/components/invite-code-display/invite-code-display.component';
@@ -275,7 +292,18 @@ export class PropertyDetailComponent implements OnInit {
   );
 
   expenses$ = this.propertyId$.pipe(
-    switchMap((id) => this.expenseService.getByProperty(id))
+    switchMap((id) =>
+      combineLatest([
+        this.expenseService.getByProperty(id),
+        this.tenantService.getByProperty(id),
+      ]).pipe(
+        map(([expenses, tenants]) => {
+          const tenantMap = new Map(tenants.map((t) => [t.id, t.name]));
+          const activeIds = tenants.filter((t) => t.active !== false).map((t) => t.id);
+          return expenses.map((expense) => this.toExpenseItem(expense, tenantMap, activeIds));
+        })
+      )
+    )
   );
 
   sharedBills$ = this.propertyId$.pipe(
@@ -656,6 +684,79 @@ export class PropertyDetailComponent implements OnInit {
     await this.expenseService.delete(expense.id);
     if (this.editingExpenseId() === expense.id) {
       this.cancelExpenseForm();
+    }
+  }
+
+  private toExpenseItem(
+    expense: Expense,
+    tenantMap: Map<string, string>,
+    activeTenantIds: string[]
+  ): ExpenseItem {
+    const isAllShare =
+      !!expense.visibleToTenants &&
+      (!expense.sharedWithTenantId || expense.sharedWithTenantId === SHARE_WITH_ALL_TENANTS);
+
+    let sharedLabel: string | undefined;
+    if (expense.visibleToTenants) {
+      sharedLabel = isAllShare
+        ? 'All tenants'
+        : tenantMap.get(expense.sharedWithTenantId!) ?? 'A tenant';
+    }
+
+    const splitIds = isAllShare
+      ? expense.splitTenantIds?.length
+        ? expense.splitTenantIds
+        : activeTenantIds
+      : [];
+    const splitShares =
+      splitIds.length > 0
+        ? splitIds.map((tenantId) => ({
+            tenantId,
+            name: tenantMap.get(tenantId) ?? 'Tenant',
+            status: tenantShareStatus(expense, tenantId),
+          }))
+        : undefined;
+
+    return {
+      ...expense,
+      sharedLabel,
+      settlementStatus: isTenantAssignedExpense(expense)
+        ? expense.settlementStatus ?? 'unpaid'
+        : undefined,
+      splitShares,
+      shareAmount: splitShares ? expense.amount / splitShares.length : undefined,
+    };
+  }
+
+  async confirmExpensePaid(expenseId: string): Promise<void> {
+    try {
+      await this.expenseService.confirmPaid(expenseId);
+      this.notifications.success('Marked as paid.');
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not update this expense. Try again.');
+    }
+  }
+
+  async markExpenseUnpaid(expenseId: string): Promise<void> {
+    try {
+      await this.expenseService.markUnpaid(expenseId);
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not update this expense. Try again.');
+    }
+  }
+
+  async setExpenseShare(
+    expenseId: string,
+    tenantId: string,
+    status: 'unpaid' | 'paid'
+  ): Promise<void> {
+    try {
+      await this.expenseService.setShareStatus(expenseId, tenantId, status);
+      if (status === 'paid') {
+        this.notifications.success('Marked as paid.');
+      }
+    } catch (err) {
+      this.notifications.handleError(err, 'Could not update this expense. Try again.');
     }
   }
 

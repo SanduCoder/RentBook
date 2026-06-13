@@ -88,9 +88,11 @@
   }
   
   .info-banner {
-    background: #ecfdf5;
-    color: #047857;
-    border: 1px solid #bbf7d0;
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+    border-left: 4px solid #059669;
+    font-weight: 500;
   }
   
   .field {
@@ -192,6 +194,7 @@
   
   .checkbox {
     display: inline-flex;
+    flex-direction: row;
     align-items: center;
     gap: 0.5rem;
     font-size: 0.8125rem;
@@ -199,6 +202,7 @@
     color: var(--text-secondary);
     cursor: pointer;
     user-select: none;
+    white-space: nowrap;
   }
   
   .checkbox input {
