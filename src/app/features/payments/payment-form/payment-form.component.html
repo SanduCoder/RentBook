@@ -28,13 +28,26 @@
       </label>
     }
 
+    @if (form.controls.tenantId.value && monthlyRent() > 0) {
+      <p class="form-hint rent-context">
+        <span>Monthly rent: <strong>{{ monthlyRent() | currencyFormat: currency() }}</strong></span>
+        @if (paidThisMonth() > 0) {
+          <span>Paid this month: <strong>{{ paidThisMonth() | currencyFormat: currency() }}</strong></span>
+        }
+        <span>
+          Remaining balance:
+          <strong [class.balance-clear]="balanceRemaining() === 0">{{ balanceRemaining() | currencyFormat: currency() }}</strong>
+        </span>
+      </p>
+    }
+
     <label>
-      Amount
+      Amount paid
       <input type="number" formControlName="amount" placeholder="0" />
     </label>
 
     <label>
-      Payment Method
+      Payment method
       <select formControlName="method">
         @for (method of methods(); track method.value) {
           <option [value]="method.value">{{ method.label }}</option>
@@ -43,12 +56,12 @@
     </label>
 
     <label>
-      Reference (optional)
-      <input type="text" formControlName="reference" placeholder="Transaction ID" />
+      Transaction reference (optional)
+      <input type="text" formControlName="reference" [placeholder]="referencePlaceholder()" />
     </label>
 
     <label>
-      Date
+      Payment date
       <input type="date" formControlName="date" />
     </label>
 
@@ -64,7 +77,7 @@
 
     <label>
       Notes (optional)
-      <textarea formControlName="notes" rows="2" placeholder="Any additional notes"></textarea>
+      <textarea formControlName="notes" rows="2" placeholder="Any extra details"></textarea>
     </label>
 
     <div class="form-actions">
@@ -74,5 +87,34 @@
       </button>
     </div>
   </form>
+
+  @if (form.controls.tenantId.value && recentPayments().length > 0) {
+    <section class="recent-payments" aria-label="Recent payments">
+      <div class="recent-payments-head">
+        <h2>Recent Payments</h2>
+        @if (showRecentPaymentsExpand(recentPayments(), recentPaymentsExpanded())) {
+          <button type="button" class="view-all" (click)="recentPaymentsExpanded.set(true)">View all</button>
+        } @else if (showRecentPaymentsCollapse(recentPayments(), recentPaymentsExpanded())) {
+          <button type="button" class="view-all" (click)="recentPaymentsExpanded.set(false)">View less</button>
+        }
+      </div>
+      <ul class="recent-payments-list">
+        @for (payment of visibleRecentPayments(recentPayments(), recentPaymentsExpanded()); track payment.id) {
+          <li>
+            <div class="recent-payment-row">
+              <div>
+                <p class="recent-payment-amount">{{ payment.amount | currencyFormat: currency() }}</p>
+                <p class="recent-payment-meta">{{ recordedByLabel(payment) }}</p>
+              </div>
+              <div class="recent-payment-side">
+                <span class="status-badge" [class]="payment.status">{{ statusLabels[payment.status] }}</span>
+                <time>{{ recordedAt(payment) | date: 'MMM d, yyyy · h:mm a' }}</time>
+              </div>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
 }
 </div>

@@ -1,5 +1,5 @@
-import { AsyncPipe, Location } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { AsyncPipe, DatePipe, Location } from '@angular/common';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { navigateBack } from '../../../core/utils/navigate-back.util';
@@ -10,7 +10,13 @@ import { CountryProfileService } from '../../../core/services/country-profile.se
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { TenantService } from '../../../core/services/tenant.service';
-import { PaymentMethod, PaymentStatus } from '../../../core/models/payment.model';
+import { PaymentMethod, PaymentStatus, Payment, PAYMENT_STATUS_LABELS, paymentRecordedAt, paymentRecordedByLabel } from '../../../core/models/payment.model';
+import { getTenantMonthBalance } from '../../../core/utils/payment-stats.utils';
+import {
+  showListCollapse,
+  showListExpand,
+  visibleListItems,
+} from '../../../core/utils/list-preview.utils';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { CurrencyFormatPipe } from '../../../shared/pipes/currency-format.pipe';
 import { propertyCountryCode } from '../../../core/utils/currency-aggregation.utils';
@@ -27,7 +33,7 @@ interface PaymentTenantOption {
 @Component({
   selector: 'app-payment-form',
   standalone: true,
-  imports: [AsyncPipe, ReactiveFormsModule, PageHeaderComponent, CurrencyFormatPipe],
+  imports: [AsyncPipe, DatePipe, ReactiveFormsModule, PageHeaderComponent, CurrencyFormatPipe],
   templateUrl: './payment-form.component.html',
   styleUrl: './payment-form.component.scss',
 })
@@ -45,7 +51,28 @@ export class PaymentFormComponent implements OnInit {
   loading = signal(false);
   success = signal(false);
   receiptNumber = signal('');
+  monthlyRent = signal(0);
+  paidThisMonth = signal(0);
+  balanceRemaining = signal(0);
+  currency = signal(defaultCurrency());
+  recentPayments = signal<Payment[]>([]);
+  recentPaymentsExpanded = signal(false);
+  visibleRecentPayments = visibleListItems;
+  showRecentPaymentsExpand = showListExpand;
+  showRecentPaymentsCollapse = showListCollapse;
+  statusLabels = PAYMENT_STATUS_LABELS;
   methods = signal<PaymentMethodOption[]>(this.countryProfiles.paymentMethodsForUser());
+
+  referencePlaceholder = computed(() => {
+    const mobileMethod = this.methods().find((method) =>
+      ['wave', 'afrimoney', 'qmoney', 'mpesa', 'mtn_momo', 'orange_money', 'zelle', 'venmo', 'cash_app'].includes(
+        method.value
+      )
+    );
+    return mobileMethod
+      ? `${mobileMethod.label} reference or transaction ID (optional)`
+      : 'Transaction reference (optional)';
+  });
 
   preselectedTenantId = this.route.snapshot.queryParamMap.get('tenantId') ?? '';
   preselectedPropertyId = this.route.snapshot.queryParamMap.get('propertyId') ?? '';
@@ -97,31 +124,57 @@ export class PaymentFormComponent implements OnInit {
     this.form.controls.tenantId.valueChanges
       .pipe(startWith(this.form.controls.tenantId.value))
       .subscribe((tenantId) => {
-        void this.refreshMethodsForTenant(tenantId);
+        void this.loadTenantContext(tenantId);
       });
   }
 
   onTenantChange(tenantId: string): void {
-    void this.refreshMethodsForTenant(tenantId);
+    void this.loadTenantContext(tenantId);
   }
 
-  private async refreshMethodsForTenant(tenantId: string): Promise<void> {
+  private async loadTenantContext(tenantId: string): Promise<void> {
     if (!tenantId) {
+      this.monthlyRent.set(0);
+      this.paidThisMonth.set(0);
+      this.balanceRemaining.set(0);
+      this.recentPayments.set([]);
+      this.recentPaymentsExpanded.set(false);
       this.methods.set(this.countryProfiles.paymentMethodsForUser());
       return;
     }
 
+    this.recentPaymentsExpanded.set(false);
+
     const tenant = await firstValueFrom(this.tenantService.getById(tenantId));
     if (!tenant) return;
 
-    const property = await firstValueFrom(this.propertyService.getById(tenant.propertyId));
+    const [property, payments] = await Promise.all([
+      firstValueFrom(this.propertyService.getById(tenant.propertyId)),
+      firstValueFrom(this.paymentService.getByTenantAtProperty(tenant.id, tenant.propertyId)),
+    ]);
+
     const countryCode = property ? propertyCountryCode(property) : this.auth.currentUser()?.countryCode;
     const nextMethods = this.countryProfiles.paymentMethodsForCountry(countryCode);
+    const monthBalance = getTenantMonthBalance(tenant.monthlyRent, payments, { tenantId: tenant.id });
+
     this.methods.set(nextMethods);
+    this.currency.set(property?.currency ?? defaultCurrency(countryCode));
+    this.monthlyRent.set(tenant.monthlyRent);
+    this.paidThisMonth.set(monthBalance.paidThisMonth);
+    this.balanceRemaining.set(monthBalance.balanceRemaining);
+    this.recentPayments.set(
+      [...payments].sort((a, b) => paymentRecordedAt(b).getTime() - paymentRecordedAt(a).getTime())
+    );
 
     const currentMethod = this.form.controls.method.value;
     if (!nextMethods.some((method) => method.value === currentMethod)) {
       this.form.patchValue({ method: nextMethods[0]?.value ?? 'cash' });
+    }
+
+    if (!this.form.controls.amount.dirty) {
+      const suggestedAmount =
+        monthBalance.balanceRemaining > 0 ? monthBalance.balanceRemaining : tenant.monthlyRent;
+      this.form.patchValue({ amount: suggestedAmount });
     }
   }
 
@@ -171,4 +224,11 @@ export class PaymentFormComponent implements OnInit {
     }
     this.router.navigate(['/payments']);
   }
+
+  recordedByLabel(payment: Payment): string {
+    const user = this.auth.currentUser();
+    return paymentRecordedByLabel(payment, user ? { viewer: 'owner', ownerId: user.id } : undefined);
+  }
+
+  recordedAt = paymentRecordedAt;
 }

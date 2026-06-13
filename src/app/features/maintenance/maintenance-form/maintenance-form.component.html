@@ -4,30 +4,39 @@
 <app-page-header title="New Request" subtitle="Report a maintenance issue" />
 
 <form [formGroup]="form" (ngSubmit)="onSubmit()" class="form-card">
-  @if (properties$ | async; as properties) {
-    <label>
-      Property
-      <select formControlName="propertyId">
-        <option value="" disabled>Select property</option>
-        @for (property of properties; track property.id) {
-          <option [value]="property.id">{{ property.name }}</option>
-        }
-      </select>
-    </label>
-  }
-
-  @if (tenants$ | async; as tenants) {
-    <label>
-      Tenant (optional)
-      <select formControlName="tenantId">
-        <option value="">No tenant selected</option>
-        @for (tenant of tenants; track tenant.id) {
-          @if (!form.value.propertyId || tenant.propertyId === form.value.propertyId) {
-            <option [value]="tenant.id">{{ tenant.name }}</option>
+  @if (isTenantUser()) {
+    @if (tenantContext(); as context) {
+      <p class="form-hint tenant-context">
+        <span>Property: <strong>{{ context.propertyName }}</strong></span>
+        <span>Unit: <strong>{{ context.unitName }}</strong></span>
+      </p>
+    }
+  } @else {
+    @if (properties$ | async; as properties) {
+      <label>
+        Property
+        <select formControlName="propertyId">
+          <option value="" disabled>Select property</option>
+          @for (property of properties; track property.id) {
+            <option [value]="property.id">{{ property.name }}</option>
           }
-        }
-      </select>
-    </label>
+        </select>
+      </label>
+    }
+
+    @if (tenants$ | async; as tenants) {
+      <label>
+        Tenant (optional)
+        <select formControlName="tenantId">
+          <option value="">No tenant selected</option>
+          @for (tenant of tenants; track tenant.id) {
+            @if (!form.controls.propertyId.value || tenant.propertyId === form.controls.propertyId.value) {
+              <option [value]="tenant.id">{{ tenant.name }}</option>
+            }
+          }
+        </select>
+      </label>
+    }
   }
 
   <label>

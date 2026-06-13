@@ -1,5 +1,6 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
@@ -8,12 +9,18 @@ import { ErrorNotificationService } from '../../../core/services/error-notificat
 import { MaintenanceService } from '../../../core/services/maintenance.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { TenantService } from '../../../core/services/tenant.service';
+import { UnitService } from '../../../core/services/unit.service';
 import {
   MAINTENANCE_CATEGORIES,
   MaintenanceCategory,
 } from '../../../core/models/maintenance.model';
-import { isTenant } from '../../../core/utils/role.utils';
+import { isTenancyLinked, isTenant } from '../../../core/utils/role.utils';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
+
+interface TenantRequestContext {
+  propertyName: string;
+  unitName: string;
+}
 
 @Component({
   selector: 'app-maintenance-form',
@@ -28,6 +35,7 @@ export class MaintenanceFormComponent implements OnInit {
   private auth = inject(AuthService);
   private propertyService = inject(PropertyService);
   private tenantService = inject(TenantService);
+  private unitService = inject(UnitService);
   private maintenanceService = inject(MaintenanceService);
   private notifications = inject(ErrorNotificationService);
 
@@ -35,8 +43,14 @@ export class MaintenanceFormComponent implements OnInit {
   error = signal('');
   categories = MAINTENANCE_CATEGORIES;
   isTenantUser = signal(false);
+  tenantContext = signal<TenantRequestContext | null>(null);
 
-  properties$ = this.propertyService.getByOwner(this.auth.currentUser()?.id ?? '');
+  properties$ = toObservable(this.auth.currentUser).pipe(
+    switchMap((user) => {
+      if (!user || isTenant(user.role)) return of([]);
+      return this.propertyService.getByOwner(user.id);
+    })
+  );
 
   tenants$ = this.properties$.pipe(
     switchMap((properties) => {
@@ -54,17 +68,41 @@ export class MaintenanceFormComponent implements OnInit {
     description: ['', Validators.required],
   });
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
+    await this.auth.waitForSession();
     const user = this.auth.currentUser();
-    if (user && isTenant(user.role) && user.linkedPropertyId && user.tenantRecordId) {
-      this.isTenantUser.set(true);
-      this.form.patchValue({
-        propertyId: user.linkedPropertyId,
-        tenantId: user.tenantRecordId,
-      });
-      this.form.controls.propertyId.disable();
-      this.form.controls.tenantId.disable();
+    if (!user) return;
+
+    if (!isTenant(user.role)) return;
+
+    this.isTenantUser.set(true);
+
+    if (!isTenancyLinked(user) || !user.linkedPropertyId || !user.tenantRecordId) {
+      this.router.navigate(['/join']);
+      return;
     }
+
+    this.form.patchValue({
+      propertyId: user.linkedPropertyId,
+      tenantId: user.tenantRecordId,
+    });
+
+    await this.loadTenantContext(user.linkedPropertyId, user.tenantRecordId);
+  }
+
+  private async loadTenantContext(propertyId: string, tenantId: string): Promise<void> {
+    const tenant = await firstValueFrom(this.tenantService.getById(tenantId));
+    if (!tenant) return;
+
+    const [property, unit] = await Promise.all([
+      firstValueFrom(this.propertyService.getById(propertyId)),
+      firstValueFrom(this.unitService.getById(tenant.unitId)),
+    ]);
+
+    this.tenantContext.set({
+      propertyName: property?.name ?? 'Property',
+      unitName: unit?.name ?? 'Unit',
+    });
   }
 
   onCategoryChange(category: MaintenanceCategory): void {
