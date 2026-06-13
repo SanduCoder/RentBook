@@ -229,11 +229,13 @@ export class PropertyDetailComponent implements OnInit {
         this.propertyService.getById(id),
         this.paymentService.getByProperty(id),
         this.tenantService.getByProperty(id),
+        this.rentReminders.getByProperty(id),
       ]).pipe(
-        map(([property, payments, tenants]) => {
+        map(([property, payments, tenants, reminders]) => {
           const currency = property?.currency ?? defaultCurrency(this.auth.currentUser()?.countryCode);
           const tenantNames = new Map(tenants.map((t) => [t.id, t.name]));
-          return payments.slice(0, 6).map((p) => {
+
+          const paymentItems: PropertyActivity[] = payments.slice(0, 6).map((p) => {
             const name = tenantNames.get(p.tenantId);
             const amount = formatCurrency(p.amount, currency);
             const method = PAYMENT_METHOD_LABELS[p.method];
@@ -256,6 +258,25 @@ export class PropertyDetailComponent implements OnInit {
               amount: p.amount,
             };
           });
+
+          const reminderItems: PropertyActivity[] = reminders.slice(0, 5).map((r) => {
+            const tenantName = tenantNames.get(r.tenantId) ?? 'Tenant';
+            const amountLabel = formatCurrency(r.monthlyRent, r.currency);
+            return {
+              id: r.id,
+              type: 'reminder' as const,
+              tenantId: r.tenantId,
+              message: r.isOverdue
+                ? `Reminder sent to ${tenantName} — ${amountLabel} overdue`
+                : `Reminder sent to ${tenantName} — ${amountLabel}`,
+              timestamp: r.createdAt,
+              amount: r.monthlyRent,
+            };
+          });
+
+          return [...paymentItems, ...reminderItems]
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .slice(0, 8);
         }),
         catchError(() => of([] as PropertyActivity[]))
       )

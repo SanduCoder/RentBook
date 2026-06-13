@@ -6,6 +6,7 @@ import { ExpenseService } from './expense.service';
 import { MaintenanceService } from './maintenance.service';
 import { PaymentService } from './payment.service';
 import { PropertyService } from './property.service';
+import { RentReminderService } from './rent-reminder.service';
 import { TenantService } from './tenant.service';
 import { UnitService } from './unit.service';
 import { defaultCurrency } from '../config/country-profiles.config';
@@ -57,7 +58,7 @@ export interface DashboardStats {
 
 export interface ActivityItem {
   id: string;
-  type: 'payment' | 'overdue' | 'maintenance';
+  type: 'payment' | 'overdue' | 'maintenance' | 'reminder';
   message: string;
   detail?: string;
   statusTone?: 'success' | 'warning' | 'info';
@@ -77,6 +78,7 @@ export class DashboardService {
   private paymentService = inject(PaymentService);
   private maintenanceService = inject(MaintenanceService);
   private expenseService = inject(ExpenseService);
+  private rentReminderService = inject(RentReminderService);
 
   getStats(): Observable<DashboardStats> {
     return toObservable(this.auth.currentUser).pipe(
@@ -196,8 +198,9 @@ export class DashboardService {
         this.paymentService.getByTenant(user.tenantRecordId!),
         this.maintenanceService.getByTenantRecord(user.tenantRecordId!),
         this.propertyService.getById(user.linkedPropertyId!),
+        this.rentReminderService.getForTenant(user.tenantRecordId!),
       ]).pipe(
-        map(([payments, requests, property]) => {
+        map(([payments, requests, property, reminders]) => {
           const currency = property?.currency ?? defaultCurrency(user.countryCode);
           const ownerId = property?.ownerId ?? user.linkedOwnerId;
 
@@ -241,7 +244,23 @@ export class DashboardService {
               tenantId: r.tenantId,
             }));
 
-          return [...paymentItems, ...maintenanceItems]
+          const reminderItems: ActivityItem[] = [...reminders]
+            .slice(0, 5)
+            .map((r) => ({
+              id: r.id,
+              type: 'reminder' as const,
+              message: r.isOverdue
+                ? `Rent reminder — ${formatCurrency(r.monthlyRent, r.currency)} overdue`
+                : `Rent reminder — ${formatCurrency(r.monthlyRent, r.currency)} due`,
+              detail: `From ${r.sentByName} · ${r.unitName}`,
+              statusTone: 'success' as const,
+              timestamp: r.createdAt,
+              propertyId: r.propertyId,
+              tenantId: r.tenantId,
+              amount: r.monthlyRent,
+            }));
+
+          return [...paymentItems, ...maintenanceItems, ...reminderItems]
             .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
             .slice(0, 10);
         }),
@@ -257,10 +276,13 @@ export class DashboardService {
         return combineLatest([
           this.paymentService.getByOwnerProperties(propertyIds),
           this.maintenanceService.getByOwnerProperties(propertyIds),
+          this.rentReminderService.getByOwnerProperties(propertyIds),
+          this.tenantService.getByOwnerProperties(propertyIds),
         ]).pipe(
-          map(([payments, requests]) => {
+          map(([payments, requests, reminders, tenants]) => {
             const currencyByProperty = new Map(properties.map((property) => [property.id, property.currency]));
             const fallbackCurrency = defaultCurrency(user.countryCode);
+            const tenantNames = new Map(tenants.map((tenant) => [tenant.id, tenant.name]));
 
             const paymentItems: ActivityItem[] = [...payments]
               .sort((a, b) => paymentRecordedAt(b).getTime() - paymentRecordedAt(a).getTime())
@@ -297,7 +319,27 @@ export class DashboardService {
               tenantId: r.tenantId,
             }));
 
-            return [...paymentItems, ...maintenanceItems]
+            const reminderItems: ActivityItem[] = [...reminders]
+              .slice(0, 5)
+              .map((r) => {
+                const tenantName = tenantNames.get(r.tenantId) ?? 'Tenant';
+                const amountLabel = formatCurrency(r.monthlyRent, r.currency);
+                return {
+                  id: r.id,
+                  type: 'reminder' as const,
+                  message: r.isOverdue
+                    ? `Reminder sent to ${tenantName} — ${amountLabel} overdue`
+                    : `Reminder sent to ${tenantName} — ${amountLabel}`,
+                  detail: `${r.unitName} · ${r.sentByName}`,
+                  statusTone: 'success' as const,
+                  timestamp: r.createdAt,
+                  propertyId: r.propertyId,
+                  tenantId: r.tenantId,
+                  amount: r.monthlyRent,
+                };
+              });
+
+            return [...paymentItems, ...maintenanceItems, ...reminderItems]
               .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
               .slice(0, 10);
           })

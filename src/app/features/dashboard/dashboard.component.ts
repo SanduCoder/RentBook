@@ -296,6 +296,7 @@ export class DashboardComponent {
     }
     if (item.type === 'maintenance') return '🔧';
     if (item.type === 'overdue') return '🏠';
+    if (item.type === 'reminder') return '📩';
     return '👤';
   }
 
@@ -303,6 +304,7 @@ export class DashboardComponent {
     if (item.statusTone) return item.statusTone;
     if (item.type === 'maintenance') return 'info';
     if (item.type === 'overdue') return 'warning';
+    if (item.type === 'reminder') return 'success';
     return 'success';
   }
 

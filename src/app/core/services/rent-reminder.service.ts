@@ -13,6 +13,7 @@ import {
 import { Observable, map } from 'rxjs';
 import { RentReminder } from '../models/rent-reminder.model';
 import { observeQuery } from '../utils/firestore-observable';
+import { observeByPropertyIds } from '../utils/property-query.utils';
 import { stripUndefined, toDate } from '../utils/firestore.utils';
 import {
   RentReminderDetails,
@@ -40,6 +41,18 @@ export class RentReminderService {
     return observeQuery<RentReminder>(this.injector, () =>
       query(this.collection, where('tenantId', '==', tenantId))
     ).pipe(map((items) => this.normalize(items).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())));
+  }
+
+  getByProperty(propertyId: string): Observable<RentReminder[]> {
+    return observeQuery<RentReminder>(this.injector, () =>
+      query(this.collection, where('propertyId', '==', propertyId))
+    ).pipe(map((items) => this.normalize(items).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())));
+  }
+
+  getByOwnerProperties(propertyIds: string[]): Observable<RentReminder[]> {
+    return observeByPropertyIds<RentReminder>(this.injector, this.collection, propertyIds).pipe(
+      map((items) => this.normalize(items).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()))
+    );
   }
 
   getUnreadForTenant(tenantId: string): Observable<RentReminder[]> {

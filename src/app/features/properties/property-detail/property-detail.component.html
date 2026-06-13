@@ -202,7 +202,7 @@
 
           @if (activity$ | async; as activities) {
             @if (activities.length === 0) {
-              <p class="empty-text">No payments recorded for this property yet.</p>
+              <p class="empty-text">No activity for this property yet.</p>
             } @else {
               <ul class="activity-list">
                 @for (item of activities; track item.id) {
@@ -213,7 +213,7 @@
                       [queryParams]="route.queryParams ?? null"
                       class="activity-link"
                     >
-                      <span class="activity-icon">👤</span>
+                      <span class="activity-icon">{{ item.type === 'reminder' ? '📩' : '👤' }}</span>
                       <div class="activity-content">
                         <p>{{ item.message }}</p>
                         <time>{{ item.timestamp | date: 'MMM d, yyyy · h:mm a' }}</time>
